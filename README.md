@@ -7,8 +7,44 @@
 
 
 ## Installation
-特别注意，本项目应该在**Isaalab release/v2.3.0**和**Isaacsim 5.1** 版本中运行，其他版本暂时还没有进行适配，后期也会放出docker版本。
+特别注意，本项目应该在**Isaalab release/v2.3.0**和**Isaacsim 5.1** 版本中运行，其他版本暂时还没有进行适配，可以使用专门提供适配本项目的docker，后期会放出来，但是文件较大有65.8G；也可以使用官方的docker，但是需要稍微手动配置一下环境。
 
+这里给出一个安装官方环境的参考
+```
+# 要拉取最小的 Isaac Lab 容器，请运行:
+
+docker pull nvcr.io/nvidia/isaac-lab:2.3.0
+# 要运行带有交互式 bash 会话的 Isaac Lab 容器，请运行:
+
+docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+   -e "PRIVACY_CONSENT=Y" \
+   -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+   -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+   -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
+   -v ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw \
+   -v ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw \
+   -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
+   -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
+   -v ~/docker/isaac-sim/documents:/root/Documents:rw \
+   nvcr.io/nvidia/isaac-lab:2.3.0
+为了通过 X11 转发启用渲染，请运行:
+
+xhost +
+docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+   -e "PRIVACY_CONSENT=Y" \
+   -e DISPLAY \
+   -v $HOME/.Xauthority:/root/.Xauthority \
+   -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+   -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+   -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
+   -v ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw \
+   -v ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw \
+   -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
+   -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
+   -v ~/docker/isaac-sim/documents:/root/Documents:rw \
+   nvcr.io/nvidia/isaac-lab:2.3.0
+```
+---
 参照流程 [installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html).
 建议使用anaconda或者miniconda进行环境配置，以及使用pip进行Isaacsim的安装。为了方便起见，下面贴出对应的安装步骤，可以直接安装配置。
 
@@ -139,6 +175,8 @@ python scripts/rsl_rl/play.py \
 ### 真机部署
 
 真机部署请参考[ddt_sim2sim2real](https://github.com/DDTRobot/tita_rl_sim2sim2real)
+---
+
 ### Set up IDE (Optional)
 
 To setup the IDE, please follow these instructions:
