@@ -119,14 +119,26 @@ tensorboard会自动加载对应的训练参数，打开http://localhost:6006/�
 python scripts/rsl_rl/play.py \
     --task DDT-Velocity-Flat-Tita-Play-v0 \
     --num_envs 50 \
-    --checkpoint "./logs/rsl_rl/<path-to-your-file>
+    --checkpoint "./logs/rsl_rl/<path-to-your-file>"
 ```
 
 其中，task输入对应的训练任务的play版本，load_run输入对应的时间日期，checkpoint输入对应的权重文件,num_envs是推理的环境数量。
 
 对于服务器推理，可以使用`--headless`和`--video`的参数进行推理。
+```
+python scripts/rsl_rl/play.py \
+    --task DDT-Velocity-Flat-Tita-Play-v0 \
+    --num_envs 50 \
+    --checkpoint "./logs/rsl_rl/<path-to-your-file>" \
+    --headless \
+    --video
+```
 
-推理完成后，在logs/rsl_rl/\<data-data-path\>/video/play中会有对应的推理视频
+推理完成后，在**logs/rsl_rl/\<data-data-path\>/video/play**中会有对应的推理视频，同时每次推理的onnx文件也都会保存在**logs/rsl_rl/\<robot\>/<data-data-path\>/exported/policy.onnx**
+
+### 真机部署
+
+真机部署请参考[ddt_sim2sim2real](https://github.com/DDTRobot/tita_rl_sim2sim2real)
 ### Set up IDE (Optional)
 
 To setup the IDE, please follow these instructions:
