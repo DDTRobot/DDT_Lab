@@ -14,6 +14,8 @@
 # 要拉取最小的 Isaac Lab 容器，请运行:
 
 docker pull nvcr.io/nvidia/isaac-lab:2.3.0
+```
+```
 # 要运行带有交互式 bash 会话的 Isaac Lab 容器，请运行:
 
 docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
@@ -27,7 +29,9 @@ docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" 
    -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
    -v ~/docker/isaac-sim/documents:/root/Documents:rw \
    nvcr.io/nvidia/isaac-lab:2.3.0
-为了通过 X11 转发启用渲染，请运行:
+   ```
+   ```
+# 为了通过 X11 转发启用渲染，请运行:
 
 xhost +
 docker run --name isaac-lab --entrypoint bash -it --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
