@@ -53,6 +53,22 @@ def _short_episode_key(key: str) -> str:
 class OnConstraintPolicyRunner:
     """Training runner for cost-constrained policy optimization."""
 
+    def _get_actor_critic_class(self, name: str):
+        """Return the actor-critic class for *name*.
+
+        Override in subclasses to register additional policy classes without
+        modifying this file (e.g. DreamWaQ, RMA).
+        """
+        registry = {'ActorCriticBarlowTwins': ActorCriticBarlowTwins}
+        if name not in registry:
+            raise KeyError(
+                f"Unknown policy_class_name '{name}'. "
+                f"Available: {list(registry.keys())}. "
+                "Subclass OnConstraintPolicyRunner and override "
+                "_get_actor_critic_class() to register new policy classes."
+            )
+        return registry[name]
+
     def __init__(self, env, train_cfg, log_dir=None, device='cpu'):
         self.cfg = train_cfg['runner']
         self.alg_cfg = dict(train_cfg['algorithm'])
@@ -60,7 +76,7 @@ class OnConstraintPolicyRunner:
         self.device = device
         self.env = env
 
-        actor_critic_class = {'ActorCriticBarlowTwins': ActorCriticBarlowTwins}[self.cfg['policy_class_name']]
+        actor_critic_class = self._get_actor_critic_class(self.cfg['policy_class_name'])
         actor_critic = actor_critic_class(
             num_prop=self.env.cfg.env.n_proprio,
             num_critic_obs=self.env.cfg.env.n_critic,
@@ -186,7 +202,7 @@ class OnConstraintPolicyRunner:
                 self.save(os.path.join(self.log_dir, f'model_{it}.pt'))
             ep_infos.clear()
 
-        self.current_learning_iteration += num_learning_iterations
+        self.current_learning_iteration = tot_iter
         if self.log_dir is not None:
             self.save(os.path.join(self.log_dir, f'model_{self.current_learning_iteration}.pt'))
 
@@ -241,7 +257,7 @@ class OnConstraintPolicyRunner:
             self.writer.add_scalar('Train/mean_reward', statistics.mean(locs['rewbuffer']), locs['it'])
             self.writer.add_scalar('Train/mean_episode_length', statistics.mean(locs['lenbuffer']), locs['it'])
 
-        header = f' \033[1m Learning iteration {locs["it"]}/{self.current_learning_iteration + locs["num_learning_iterations"]} \033[0m '
+        header = f' \033[1m Learning iteration {locs["it"]}/{locs["tot_iter"]} \033[0m '
         log_string = (
             f"""{'#' * width}\n"""
             f"""{header.center(width, ' ')}\n\n"""
@@ -259,13 +275,9 @@ class OnConstraintPolicyRunner:
             log_string += f"""{'Episode reward (mean):':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
             log_string += f"""{'Episode length (mean):':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
         log_string += ep_string
-        # ETA: average iter time × iterations still to go.
-        # ``self.current_learning_iteration`` reflects the start-of-call value
-        # throughout the loop (it's only bumped at the end of learn()), so
-        # ``it - self.current_learning_iteration`` is the 0-based progress.
-        iters_done = locs['it'] - self.current_learning_iteration + 1
-        iters_total = locs['num_learning_iterations']
-        iters_remaining = max(iters_total - iters_done, 0)
+        _start = locs['tot_iter'] - locs['num_learning_iterations']
+        iters_done = locs['it'] - _start + 1
+        iters_remaining = max(locs['tot_iter'] - locs['it'] - 1, 0)
         eta_seconds = self.tot_time / max(iters_done, 1) * iters_remaining
 
         log_string += (

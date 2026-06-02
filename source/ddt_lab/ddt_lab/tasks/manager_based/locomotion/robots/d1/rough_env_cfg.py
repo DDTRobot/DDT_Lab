@@ -41,7 +41,9 @@ class SceneCfg(InteractiveSceneCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=ROUGH_TERRAINS_CFG,
+        terrain_generator=ROUGH_TERRAINS_CFG.replace(
+            horizontal_scale=0.1,  # 0.1 → 0.2: 4× fewer triangles per tile (6400→1600)
+        ),
         max_init_terrain_level=5,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -693,7 +695,7 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
         for attr in dir(self.rewards):
             if not attr.startswith("__"):
                 reward_attr = getattr(self.rewards, attr)
-                if not callable(reward_attr) and reward_attr.weight == 0:
+                if reward_attr is not None and not callable(reward_attr) and reward_attr.weight == 0:
                     setattr(self.rewards, attr, None)
 
 
@@ -724,3 +726,37 @@ class D1RoughEnvCfg_PLAY(D1RoughEnvCfg):
         # self.commands.base_velocity.ranges.lin_vel_x = (-0.0, 0.0)
         # self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
         # self.commands.base_velocity.ranges.ang_vel_z = (-0.0, 0.0)
+
+
+##
+# DreamWaQ variants — history_length=5 matches the reference (num_obs_hist=5).
+# CeNet encoder input = 5 × n_proprio vs 10 × n_proprio for NP3O.
+##
+
+
+@configclass
+class D1RoughDreamWaQEnvCfg(D1RoughEnvCfg):
+    """D1 rough env cfg for DreamWaQ.  Only difference from NP3O: history_length=5."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Override history to match the reference DreamWaQ implementation:
+        # ``num_obs_hist = 5`` → CeNet input = 5 × n_proprio = 285 dims.
+        self.observations.policy.history_length = 5
+        self.observations.policy.flatten_history_dim = False
+
+
+@configclass
+class D1RoughDreamWaQEnvCfg_PLAY(D1RoughDreamWaQEnvCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 50
+        self.scene.env_spacing = 2.5
+        self.scene.terrain.max_init_terrain_level = None
+        if self.scene.terrain.terrain_generator is not None:
+            self.scene.terrain.terrain_generator.num_rows = 5
+            self.scene.terrain.terrain_generator.num_cols = 5
+            self.scene.terrain.terrain_generator.curriculum = False
+        self.observations.policy.enable_corruption = False
+        self.events.base_external_force_torque = None
+        self.events.push_robot = None

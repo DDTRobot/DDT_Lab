@@ -27,8 +27,8 @@ import torch.nn.functional as F
 import warnings
 from torch.distributions import Normal
 
-from .common_modules import get_activation, mlp_batchnorm_factory, mlp_factory
-from .normalizer import EmpiricalNormalization
+from ..utils.common_modules import get_activation, mlp_batchnorm_factory, mlp_factory
+from ..utils.normalizer import EmpiricalNormalization
 
 
 def off_diagonal(x: torch.Tensor) -> torch.Tensor:
@@ -149,7 +149,6 @@ class ActorCriticBarlowTwins(nn.Module):
         bt_projector_dims=(64,),
         activation='elu',
         init_noise_std=1.0,
-        noise_std_type='scalar',
         imi_flag=True,
         **kwargs,
     ):
@@ -243,13 +242,7 @@ class ActorCriticBarlowTwins(nn.Module):
         # ``log`` parameterization: std = exp(log_std) — always > 0, SGD cannot
         # collapse it to zero even without entropy regularisation.  Use ``scalar``
         # only for backwards-compat with pre-trained checkpoints.
-        self.noise_std_type = noise_std_type
-        if noise_std_type == 'log':
-            self.log_std = nn.Parameter(torch.log(init_noise_std * torch.ones(num_actions)))
-        elif noise_std_type == 'scalar':
-            self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
-        else:
-            raise ValueError(f"noise_std_type must be 'log' or 'scalar', got '{noise_std_type}'")
+        self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
         self.distribution = None
         Normal.set_default_validate_args = False
 
@@ -271,7 +264,7 @@ class ActorCriticBarlowTwins(nn.Module):
     @property
     def action_noise_std(self) -> torch.Tensor:
         """Current scalar std per action (for logging). Works for both parameterisations."""
-        return self._get_std()
+        return self.std
 
     @property
     def entropy(self):
@@ -291,15 +284,11 @@ class ActorCriticBarlowTwins(nn.Module):
         return current, hist
 
     # ----- actor
-    def _get_std(self) -> torch.Tensor:
-        if self.noise_std_type == 'log':
-            return self.log_std.exp()
-        return self.std
 
     def update_distribution(self, policy_obs):
         current, hist = self._split_policy_obs(policy_obs)
         mean = self.actor_teacher_backbone(current, hist)
-        self.distribution = Normal(mean, mean * 0.0 + self._get_std())
+        self.distribution = Normal(mean, mean * 0.0 + self.std)
 
     def act(self, policy_obs, **kwargs):
         self.update_distribution(policy_obs)

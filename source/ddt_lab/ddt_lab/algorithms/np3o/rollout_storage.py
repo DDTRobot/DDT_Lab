@@ -5,8 +5,7 @@
 
 """Rollout storages for NP3O.
 
-Verbatim port of the cost-less ``RolloutStorage`` and cost-aware
-``RolloutStorageWithCost`` from ``LocomotionWithNP3O/runner/rollout_storage.py``.
+Verbatim port of ``RolloutStorageWithCost`` from ``LocomotionWithNP3O/runner/rollout_storage.py``.
 The ``utils.split_and_pad_trajectories`` import is rewired to the vendored
 ``rsl_rl.utils`` (same implementation upstream).
 """
@@ -14,95 +13,6 @@ The ``utils.split_and_pad_trajectories`` import is rewired to the vendored
 import torch
 
 from rsl_rl.utils import split_and_pad_trajectories
-
-
-class RolloutStorage:
-    class Transition:
-        def __init__(self):
-            self.observations = None
-            self.critic_observations = None
-            self.actions = None
-            self.rewards = None
-            self.dones = None
-            self.values = None
-            self.actions_log_prob = None
-            self.action_mean = None
-            self.action_sigma = None
-            self.hidden_states = None
-
-        def clear(self):
-            self.__init__()
-
-    def __init__(self, num_envs, num_transitions_per_env, obs_shape, privileged_obs_shape, actions_shape, device='cpu'):
-        self.device = device
-        self.obs_shape = obs_shape
-        self.privileged_obs_shape = privileged_obs_shape
-        self.actions_shape = actions_shape
-
-        self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
-        if privileged_obs_shape[0] is not None:
-            self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device)
-        else:
-            self.privileged_observations = None
-        self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
-        self.actions = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
-        self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()
-
-        self.actions_log_prob = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
-        self.values = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
-        self.returns = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
-        self.advantages = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
-        self.mu = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
-        self.sigma = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
-
-        self.num_transitions_per_env = num_transitions_per_env
-        self.num_envs = num_envs
-
-        self.saved_hidden_states_a = None
-        self.saved_hidden_states_c = None
-        self.step = 0
-
-    def add_transitions(self, transition):
-        if self.step >= self.num_transitions_per_env:
-            raise AssertionError('Rollout buffer overflow')
-        self.observations[self.step].copy_(transition.observations)
-        if self.privileged_observations is not None:
-            self.privileged_observations[self.step].copy_(transition.critic_observations)
-        self.actions[self.step].copy_(transition.actions)
-        self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
-        self.dones[self.step].copy_(transition.dones.view(-1, 1))
-        self.values[self.step].copy_(transition.values)
-        self.actions_log_prob[self.step].copy_(transition.actions_log_prob.view(-1, 1))
-        self.mu[self.step].copy_(transition.action_mean)
-        self.sigma[self.step].copy_(transition.action_sigma)
-        self._save_hidden_states(transition.hidden_states)
-        self.step += 1
-
-    def _save_hidden_states(self, hidden_states):
-        if hidden_states is None or hidden_states == (None, None):
-            return
-        hid_a = hidden_states[0] if isinstance(hidden_states[0], tuple) else (hidden_states[0],)
-        hid_c = hidden_states[1] if isinstance(hidden_states[1], tuple) else (hidden_states[1],)
-        if self.saved_hidden_states_a is None:
-            self.saved_hidden_states_a = [torch.zeros(self.observations.shape[0], *hid_a[i].shape, device=self.device) for i in range(len(hid_a))]
-            self.saved_hidden_states_c = [torch.zeros(self.observations.shape[0], *hid_c[i].shape, device=self.device) for i in range(len(hid_c))]
-        for i in range(len(hid_a)):
-            self.saved_hidden_states_a[i][self.step].copy_(hid_a[i])
-            self.saved_hidden_states_c[i][self.step].copy_(hid_c[i])
-
-    def clear(self):
-        self.step = 0
-
-    def compute_returns(self, last_values, gamma, lam):
-        advantage = 0
-        for step in reversed(range(self.num_transitions_per_env)):
-            next_values = last_values if step == self.num_transitions_per_env - 1 else self.values[step + 1]
-            next_is_not_terminal = 1.0 - self.dones[step].float()
-            delta = self.rewards[step] + next_is_not_terminal * gamma * next_values - self.values[step]
-            advantage = delta + next_is_not_terminal * gamma * lam * advantage
-            self.returns[step] = advantage + self.values[step]
-        self.advantages = self.returns - self.values
-        self.advantages = (self.advantages - self.advantages.mean()) / (self.advantages.std() + 1e-8)
 
 
 class RolloutStorageWithCost:

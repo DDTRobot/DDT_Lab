@@ -55,7 +55,6 @@ _BASE_NP3O_RUNNER_CFG = {
     # ActorCriticBarlowTwins (LeggedRobotCfgPPO.policy + reference's hard-coded BT sizes)
     "policy": {
         "init_noise_std": 1.0,
-        # "noise_std_type": "log",      # exp-parameterised std → never collapses to 0
         "actor_hidden_dims": [512, 256, 128],
         "critic_hidden_dims": [512, 256, 128],
         "priv_encoder_dims": [],          # [] = Identity (D1FlatCfgPPO default)

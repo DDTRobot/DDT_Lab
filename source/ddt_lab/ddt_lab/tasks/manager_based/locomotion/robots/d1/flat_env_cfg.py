@@ -13,7 +13,7 @@ and (for the play variant) zero commands + no domain randomisation.
 
 from isaaclab.utils import configclass
 
-from .rough_env_cfg import D1RoughEnvCfg
+from .rough_env_cfg import D1RoughEnvCfg, D1RoughDreamWaQEnvCfg
 
 
 @configclass
@@ -82,3 +82,38 @@ class D1FlatEnvCfg_PLAY(D1FlatEnvCfg):
         # self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
         # self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
         # self.commands.base_velocity.ranges.heading = (0.0, 0.0)
+
+
+##
+# DreamWaQ flat variants — inherit from D1RoughDreamWaQEnvCfg and apply flat overrides.
+##
+
+
+@configclass
+class D1FlatDreamWaQEnvCfg(D1RoughDreamWaQEnvCfg):
+    """D1 flat (plane) env cfg for DreamWaQ.  Terrain overrides only."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.terrain.terrain_type = "plane"
+        self.scene.terrain.terrain_generator = None
+        self.scene.height_scanner = None
+        self.observations.scanner = None
+        self.observations.critic.height_scan = None
+        self.curriculum.terrain_levels = None
+        # self.disable_zero_weight_rewards()
+
+
+@configclass
+class D1FlatDreamWaQEnvCfg_PLAY(D1FlatDreamWaQEnvCfg):
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.scene.num_envs = 50
+        self.scene.env_spacing = 2.5
+        self.observations.policy.enable_corruption = False
+        self.events.base_external_force_torque = None
+        self.events.push_robot = None
+        self.events.add_base_inertia = None
+        self.events.add_base_com = None
+        self.events.add_base_mass = None
+        self.events.randomize_actuator_gains = None

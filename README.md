@@ -93,23 +93,25 @@ python scripts/list_envs.py
 Expected output:
 
 ```
-+----------------------------------+---------------------------------+
-| Task Name                        | Config                          |
-+----------------------------------+---------------------------------+
-| DDT-Velocity-Flat-D1-v0          | D1FlatEnvCfg                    |
-| DDT-Velocity-Flat-D1-Play-v0     | D1FlatEnvCfg_PLAY               |
-| DDT-Velocity-Rough-D1-v0         | D1RoughEnvCfg                   |
-| DDT-Velocity-Rough-D1-Play-v0    | D1RoughEnvCfg_PLAY              |
-| DDT-Velocity-Flat-Tita-v0        | TitaFlatEnvCfg                  |
-| DDT-Velocity-Flat-Tita-Play-v0   | TitaFlatEnvCfg_PLAY             |
-| DDT-Velocity-Rough-Tita-v0       | TitaRoughEnvCfg                 |
-| DDT-Velocity-Rough-Tita-Play-v0  | TitaRoughEnvCfg_PLAY            |
-+----------------------------------+---------------------------------+
++----------------------------------+-----------------------------------------+
+| Task Name                        | Config                                  |
++----------------------------------+-----------------------------------------+
+| DDT-Velocity-Flat-D1-v0          | D1FlatEnvCfg (NP3O, history=10)         |
+| DDT-Velocity-Rough-D1-v0         | D1RoughEnvCfg (NP3O, history=10)        |
+| DDT-Velocity-Flat-Tita-v0        | TitaFlatEnvCfg                          |
+| DDT-Velocity-Rough-Tita-v0       | TitaRoughEnvCfg                         |
+| DDT-Velocity-Flat-D1-DreamWaQ-v0  | D1FlatDreamWaQEnvCfg (DreamWaQ, hist=5)|
+| DDT-Velocity-Rough-D1-DreamWaQ-v0 | D1RoughDreamWaQEnvCfg (DreamWaQ, hist=5)|
++----------------------------------+-----------------------------------------+
 ```
+
+`*-Play-v0` variants exist for all tasks above.
 
 ---
 
 ## Training
+
+### NP3O (BarlowTwins-PPO)
 
 ```bash
 # D1 — flat ground
@@ -124,6 +126,20 @@ python scripts/np3o/train.py --task=DDT-Velocity-Rough-D1-v0 \
 python scripts/np3o/train.py --task=DDT-Velocity-Flat-Tita-v0 \
     --num_envs 4096 --headless
 ```
+
+### DreamWaQ (CeNet VAE + PPO)
+
+```bash
+# D1 — flat ground  (history=5 frames, matches reference num_obs_hist=5)
+python scripts/dreamwaq/train.py --task=DDT-Velocity-Flat-D1-DreamWaQ-v0 \
+    --num_envs 4096 --headless
+
+# D1 — rough terrain
+python scripts/dreamwaq/train.py --task=DDT-Velocity-Rough-D1-DreamWaQ-v0 \
+    --num_envs 4096 --headless
+```
+
+Logs go to `logs/dreamwaq/<experiment_name>/` (separate from NP3O's `logs/np3o/`).
 
 ### Common flags
 
@@ -184,26 +200,28 @@ python scripts/np3o/train.py --task=DDT-Velocity-Flat-D1-v0 \
 
 ## Play / Evaluate
 
+### NP3O
+
 ```bash
-# Auto-resolves the latest checkpoint under logs/np3o/d1_flat/
 python scripts/np3o/play.py --task=DDT-Velocity-Flat-D1-Play-v0
-
-# Load a specific checkpoint
-python scripts/np3o/play.py --task=DDT-Velocity-Flat-D1-Play-v0 \
-    --checkpoint /path/to/model_5000.pt
-
-# Export JIT + ONNX policy and exit (no rollout)
-python scripts/np3o/play.py --task=DDT-Velocity-Flat-D1-Play-v0 \
-    --export_policy \
-    --export_dir /tmp/d1_deploy
+python scripts/np3o/play.py --task=DDT-Velocity-Flat-D1-Play-v0 --checkpoint /path/to/model_5000.pt
+python scripts/np3o/play.py --task=DDT-Velocity-Flat-D1-Play-v0 --export_policy --export_dir /tmp/d1_deploy
 ```
 
-Exported policy inputs (ONNX):
+### DreamWaQ
+
+```bash
+python scripts/dreamwaq/play.py --task=DDT-Velocity-Flat-D1-DreamWaQ-Play-v0
+python scripts/dreamwaq/play.py --task=DDT-Velocity-Flat-D1-DreamWaQ-Play-v0 --checkpoint /path/to/model_5000.pt
+python scripts/dreamwaq/play.py --task=DDT-Velocity-Flat-D1-DreamWaQ-Play-v0 --export_policy
+```
+
+Exported policy ONNX inputs (both algorithms):
 
 | Input | Shape | Description |
 |---|---|---|
 | `nn_input0` | `(1, n_proprio)` | Current proprio observation |
-| `nn_input1` | `(1, history_len, n_proprio)` | Full history buffer |
+| `nn_input1` | `(1, history_len, n_proprio)` | Full history buffer (`history_len=10` for NP3O, `=5` for DreamWaQ) |
 
 Output:
 
