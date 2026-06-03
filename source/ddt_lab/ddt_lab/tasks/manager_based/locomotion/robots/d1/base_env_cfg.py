@@ -276,62 +276,67 @@ class ObservationsCfg:
             scale=0.05,
         )
         actions = ObsTerm(func=mdp.last_action, clip=(-100.0, 100.0), scale=1.0)
-
-        def __post_init__(self):
-            pass
-            # self.enable_corruption = False
-            # self.concatenate_terms = True
-
-    @configclass
-    class PrivCfg(ObsGroup):
-        """Privileged physical parameters for the critic.
-
-        Absent from the policy group so the actor cannot directly observe them.
-        The BarlowTwins history encoder must implicitly infer them from proprio
-        history — this is the NP3O privileged-learning mechanism.
-        Mirrors ``LocomotionWithNP3O`` ``priv_latent`` subset that is cheaply
-        available from Isaac Lab's Articulation data without extra PhysX calls.
-        """
-
-        contact_state = ObsTerm(
-            func=mdp.contact_state,
-            params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"])},
-            clip=(-1.0, 1.0),
-            scale=1.0,
-        )
-        joint_kp_factor = ObsTerm(
-            func=mdp.joint_kp_factor,
-            params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
-            clip=(0.0, 2.0),
-            scale=1.0,
-        )
-        joint_kd_factor = ObsTerm(
-            func=mdp.joint_kd_factor,
-            params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
-            clip=(0.0, 2.0),
-            scale=1.0,
-        )
-
-    @configclass
-    class ScannerCfg(ObsGroup):
-        """Height-scan input for the critic / scan encoder.
-
-        Set to ``None`` on flat-terrain tasks where the scene has no
-        ``height_scanner``.
-        """
-
         height_scan = ObsTerm(
             func=mdp.height_scan,
             params={"sensor_cfg": SceneEntityCfg("height_scanner")},
             clip=(-1.0, 1.0),
             scale=1.0,
         )
+        def __post_init__(self):
+            pass
+            # self.enable_corruption = False
+            # self.concatenate_terms = True
+
+    # @configclass
+    # class PrivCfg(ObsGroup):
+    #     """Privileged physical parameters for the critic.
+
+    #     Absent from the policy group so the actor cannot directly observe them.
+    #     The BarlowTwins history encoder must implicitly infer them from proprio
+    #     history — this is the NP3O privileged-learning mechanism.
+    #     Mirrors ``LocomotionWithNP3O`` ``priv_latent`` subset that is cheaply
+    #     available from Isaac Lab's Articulation data without extra PhysX calls.
+    #     """
+
+    #     contact_state = ObsTerm(
+    #         func=mdp.contact_state,
+    #         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"])},
+    #         clip=(-1.0, 1.0),
+    #         scale=1.0,
+    #     )
+    #     joint_kp_factor = ObsTerm(
+    #         func=mdp.joint_kp_factor,
+    #         params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
+    #         clip=(0.0, 2.0),
+    #         scale=1.0,
+    #     )
+    #     joint_kd_factor = ObsTerm(
+    #         func=mdp.joint_kd_factor,
+    #         params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
+    #         clip=(0.0, 2.0),
+    #         scale=1.0,
+    #     )
+
+    # @configclass
+    # class ScannerCfg(ObsGroup):
+    #     """Height-scan input for the critic / scan encoder.
+
+    #     Set to ``None`` on flat-terrain tasks where the scene has no
+    #     ``height_scanner``.
+    #     """
+
+    #     height_scan = ObsTerm(
+    #         func=mdp.height_scan,
+    #         params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+    #         clip=(-1.0, 1.0),
+    #         scale=1.0,
+    #     )
 
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     critic: CriticCfg = CriticCfg()
-    priv: PrivCfg = PrivCfg()
-    scanner: ScannerCfg = ScannerCfg()
+    # priv: PrivCfg = PrivCfg()
+    # scanner: ScannerCfg = ScannerCfg()
 
 
 @configclass
@@ -569,39 +574,6 @@ class CurriculumCfg:
     terrain_levels = CurrTerm(func=mdp.terrain_levels_vel)
 
 
-##
-# Cost configuration (NP3O constrained training)
-##
-
-
-@configclass
-class CostsCfg:
-    """NP3O cost terms. Detected by ``IsaacLabNP3OWrapper`` and fed into the
-    Lagrangian-constrained PPO update. Drop this attribute on the env cfg to
-    fall back to PPO+BarlowTwins (no constraints)."""
-
-    joint_pos_limit = CostTermCfg(
-        func=mdp.joint_pos_limit,
-        scale=1.0,
-        d_value=0.0,
-        k_value=0.01,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
-    )
-    joint_vel_limit = CostTermCfg(
-        func=mdp.joint_vel_limit,
-        scale=1.0,
-        d_value=0.0,
-        k_value=0.01,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
-    )
-    joint_torque_limit = CostTermCfg(
-        func=mdp.joint_torque_limit,
-        scale=1.0,
-        d_value=0.0,
-        k_value=0.01,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
-    )
-
 
 ##
 # Environment configuration
@@ -623,7 +595,6 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
     terminations: TerminationsCfg = TerminationsCfg()
     events: EventCfg = EventCfg()
     curriculum: CurriculumCfg = CurriculumCfg()
-    costs: CostsCfg = CostsCfg()
 
     # fmt: off
     joint_names = [
@@ -668,32 +639,6 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
         self.observations.policy.joint_pos.params["asset_cfg"].joint_names = self.joint_names
         self.observations.policy.joint_vel.params["asset_cfg"].joint_names = self.joint_names
 
-        # NP3O / BarlowTwins-PPO: policy obs must be 3D (B, T, D). Setting these at
-        # group level applies to every active term in the group, so callers don't
-        # need to flag each ObsTerm individually.
-        self.observations.policy.history_length = 10
-        self.observations.policy.flatten_history_dim = False
-
-        # ---------------- domain randomisation events (looser reset pose) ----------------
-        # Matches D1FlatCfg's _reset_root_states wider initial pose distribution.
-        # self.events.reset_base.params = {
-        #     "pose_range": {
-        #         "x": (-0.5, 0.5),
-        #         "y": (-0.5, 0.5),
-        #         "z": (0.0, 0.2),
-        #         "roll": (-0.0, 0.0),
-        #         "pitch": (-0, 0),
-        #         "yaw": (-3.14, 3.14),
-        #     },
-        #     "velocity_range": {
-        #         "x": (-0.5, 0.5),
-        #         "y": (-0.5, 0.5),
-        #         "z": (-0.5, 0.5),
-        #         "roll": (-0.5, 0.5),
-        #         "pitch": (-0.5, 0.5),
-        #         "yaw": (-0.5, 0.5),
-        #     },
-        # }
         self.disable_zero_weight_rewards()
 
     def disable_zero_weight_rewards(self):
@@ -704,70 +649,3 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
                 if reward_attr is not None and not callable(reward_attr) and reward_attr.weight == 0:
                     setattr(self.rewards, attr, None)
 
-
-@configclass
-class D1RoughEnvCfg_PLAY(D1RoughEnvCfg):
-    def __post_init__(self):
-        # post init of parent
-        super().__post_init__()
-
-        # make a smaller scene for play
-        self.scene.num_envs = 50
-        self.scene.env_spacing = 2.5
-        # spawn the robot randomly in the grid (instead of their terrain levels)
-        self.scene.terrain.max_init_terrain_level = None
-        # reduce the number of terrains to save memory
-        if self.scene.terrain.terrain_generator is not None:
-            self.scene.terrain.terrain_generator.num_rows = 5
-            self.scene.terrain.terrain_generator.num_cols = 5
-            self.scene.terrain.terrain_generator.curriculum = False
-
-        # disable randomization for play
-        self.observations.policy.enable_corruption = False
-        # remove random pushing
-        self.events.base_external_force_torque = None
-        self.events.push_robot = None
-
-        # # ------------------------------Commands------------------------------
-        # self.commands.base_velocity.ranges.lin_vel_x = (-0.0, 0.0)
-        # self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
-        # self.commands.base_velocity.ranges.ang_vel_z = (-0.0, 0.0)
-
-
-##
-# DreamWaQ variants — history_length=5 matches the reference (num_obs_hist=5).
-# CeNet encoder input = 5 × n_proprio vs 10 × n_proprio for NP3O.
-##
-
-
-@configclass
-class D1RoughDreamWaQEnvCfg(D1RoughEnvCfg):
-    """D1 rough env cfg for DreamWaQ.  Only difference from NP3O: history_length=5."""
-
-    def __post_init__(self):
-        super().__post_init__()
-        # Override history to match the reference DreamWaQ implementation:
-        # ``num_obs_hist = 5`` → CeNet input = 5 × n_proprio = 285 dims.
-        self.observations.policy.history_length = 5
-        self.observations.policy.flatten_history_dim = False
-        
-
-
-@configclass
-class D1RoughDreamWaQEnvCfg_PLAY(D1RoughDreamWaQEnvCfg):
-    def __post_init__(self):
-        super().__post_init__()
-        self.scene.num_envs = 50
-        self.scene.env_spacing = 2.5
-        self.scene.terrain.max_init_terrain_level = None
-        if self.scene.terrain.terrain_generator is not None:
-            self.scene.terrain.terrain_generator.num_rows = 5
-            self.scene.terrain.terrain_generator.num_cols = 5
-            self.scene.terrain.terrain_generator.curriculum = False
-        self.observations.policy.enable_corruption = False
-        self.events.base_external_force_torque = None
-        self.events.push_robot = None
-        # ------------------------------Commands------------------------------
-        # self.commands.base_velocity.ranges.lin_vel_x = (-0.0, 0.0)
-        # self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
-        # self.commands.base_velocity.ranges.ang_vel_z = (-0.0, 0.0)

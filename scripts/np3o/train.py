@@ -12,15 +12,15 @@ from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(description='Train an Isaac Lab task with NP3O.')
 parser.add_argument('--num_envs', type=int, default=None, help='Number of parallel envs.')
-parser.add_argument('--task', type=str, required=True, help='Gym task ID, e.g. DDT-Velocity-Flat-D1-v0.')
+parser.add_argument('--task', type=str, required=True, help='Gym task ID, e.g. DDT-Velocity-Flat-D1-NP3O-v0.')
 parser.add_argument('--seed', type=int, default=None, help='Environment seed.')
 parser.add_argument('--max_iterations', type=int, default=None, help='Override iterations.')
 parser.add_argument('--resume', action='store_true', help='Resume from latest checkpoint.')
 parser.add_argument('--load_run', type=str, default=None, help='Run dir regex when resuming.')
-parser.add_argument('--load_checkpoint', type=str, default=None, help='Checkpoint regex.')
+parser.add_argument('--checkpoint', type=str, default=None, help='Checkpoint filename regex.')
 parser.add_argument('--experiment_name', type=str, default=None, help='Override experiment name.')
 AppLauncher.add_app_launcher_args(parser)
-args_cli, _ = parser.parse_known_args()
+args_cli = parser.parse_args()
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -73,8 +73,8 @@ def main():
         runner_cfg['runner']['resume'] = True
     if args_cli.load_run is not None:
         runner_cfg['runner']['load_run'] = args_cli.load_run
-    if args_cli.load_checkpoint is not None:
-        runner_cfg['runner']['load_checkpoint'] = args_cli.load_checkpoint
+    if args_cli.checkpoint is not None:
+        runner_cfg['runner']['load_checkpoint'] = args_cli.checkpoint
     if args_cli.experiment_name is not None:
         runner_cfg['runner']['experiment_name'] = args_cli.experiment_name
 
