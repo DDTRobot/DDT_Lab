@@ -130,8 +130,8 @@ DDT_D1_CFG = ArticulationCfg(
             effort_limit=60.0,
             saturation_effort=80.0,
             velocity_limit=20.0,
-            stiffness=60.0,
-            damping=1.5,
+            stiffness=80.0,
+            damping=2.0,
             friction=0.0,
         ),
         "wheels": ImplicitActuatorCfg(

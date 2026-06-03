@@ -444,10 +444,10 @@ class RewardsCfg:
 
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=3.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=1.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
 
     # -- root penalties
@@ -497,7 +497,13 @@ class RewardsCfg:
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"]),
         },
     )
-
+    power_distribution_var = RewTerm(
+        func=mdp.power_distribution_var,
+        weight=-1e-5,    # paper: -1e-5 — penalises uneven per-joint power
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"]),
+        },
+    )
 
     # -- action penalties
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
@@ -520,18 +526,18 @@ class RewardsCfg:
     # -- optional penalties
     upward = RewTerm(
         func=mdp.upward,
-        weight=0.0,
+        weight=1.0,
     )
 
     # -- pose regularisation (D1FlatCfg.rewards.scales.{default_joint, hip_pos})
     default_joint_l2 = RewTerm(
         func=mdp.default_joint_l2,
-        weight= -0.0,
+        weight= -1.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
     hip_pos = RewTerm(
         func=mdp.default_joint_l2,
-        weight=-0.0,
+        weight=-0.5,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_joint"]),
         },
@@ -670,24 +676,24 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
 
         # ---------------- domain randomisation events (looser reset pose) ----------------
         # Matches D1FlatCfg's _reset_root_states wider initial pose distribution.
-        self.events.reset_base.params = {
-            "pose_range": {
-                "x": (-0.5, 0.5),
-                "y": (-0.5, 0.5),
-                "z": (0.0, 0.2),
-                "roll": (-0.0, 0.0),
-                "pitch": (-0, 0),
-                "yaw": (-3.14, 3.14),
-            },
-            "velocity_range": {
-                "x": (-0.5, 0.5),
-                "y": (-0.5, 0.5),
-                "z": (-0.5, 0.5),
-                "roll": (-0.5, 0.5),
-                "pitch": (-0.5, 0.5),
-                "yaw": (-0.5, 0.5),
-            },
-        }
+        # self.events.reset_base.params = {
+        #     "pose_range": {
+        #         "x": (-0.5, 0.5),
+        #         "y": (-0.5, 0.5),
+        #         "z": (0.0, 0.2),
+        #         "roll": (-0.0, 0.0),
+        #         "pitch": (-0, 0),
+        #         "yaw": (-3.14, 3.14),
+        #     },
+        #     "velocity_range": {
+        #         "x": (-0.5, 0.5),
+        #         "y": (-0.5, 0.5),
+        #         "z": (-0.5, 0.5),
+        #         "roll": (-0.5, 0.5),
+        #         "pitch": (-0.5, 0.5),
+        #         "yaw": (-0.5, 0.5),
+        #     },
+        # }
         self.disable_zero_weight_rewards()
 
     def disable_zero_weight_rewards(self):
@@ -744,6 +750,7 @@ class D1RoughDreamWaQEnvCfg(D1RoughEnvCfg):
         # ``num_obs_hist = 5`` → CeNet input = 5 × n_proprio = 285 dims.
         self.observations.policy.history_length = 5
         self.observations.policy.flatten_history_dim = False
+        
 
 
 @configclass
@@ -760,3 +767,7 @@ class D1RoughDreamWaQEnvCfg_PLAY(D1RoughDreamWaQEnvCfg):
         self.observations.policy.enable_corruption = False
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        # ------------------------------Commands------------------------------
+        # self.commands.base_velocity.ranges.lin_vel_x = (-0.0, 0.0)
+        # self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
+        # self.commands.base_velocity.ranges.ang_vel_z = (-0.0, 0.0)

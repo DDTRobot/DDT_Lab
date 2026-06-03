@@ -701,25 +701,38 @@ def default_joint_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEn
     reward *= torch.clamp(-asset.data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
     return reward
 
-
-def hip_pos(
+def stand_still(
     env: ManagerBasedRLEnv,
     command_name: str,
+    command_threshold: float = 0.1,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    lateral_command_index: int = 1,
-    command_threshold: float = 1.0e-6,
 ) -> torch.Tensor:
-    """Penalize hip joint deviation from default — only when lateral velocity command is ~0.
+    """Penalize offsets from the default joint positions when the command is very small."""
+    # Penalize motion when command is nearly zero.
+    reward = mdp.joint_deviation_l1(env, asset_cfg)
+    reward *= torch.norm(env.command_manager.get_command(command_name), dim=1) < command_threshold
+    reward *= torch.clamp(-env.scene["robot"].data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
+    return reward
 
-    Port of ``LocomotionWithNP3O.D1Flat._reward_hip_pos``: discourages hip
-    abduction when the policy is not commanded to walk sideways.
+def power_distribution_var(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Penalize uneven power distribution across joints using variance.
+
+    Computes the variance of per-joint mechanical power ``(τ · θ̇)`` across
+    the selected joints.  A high variance means some joints are working much
+    harder than others; penalising it encourages balanced actuation.
+
+    Reference reward: ``var(τ · θ̇)²``, weight ``-1e-5``.
+
+    Shape: ``(num_envs,)``
     """
     asset: Articulation = env.scene[asset_cfg.name]
-    cmd = env.command_manager.get_command(command_name)
-    flag = (cmd[:, lateral_command_index].abs() < command_threshold).float()
-
-    q = asset.data.joint_pos[:, asset_cfg.joint_ids]
-    q_default = asset.data.default_joint_pos[:, asset_cfg.joint_ids]
-    reward = flag * torch.sum(torch.square(q - q_default), dim=1)
+    # per-joint power (B, n_joints)
+    power = asset.data.applied_torque[:, asset_cfg.joint_ids] * asset.data.joint_vel[:, asset_cfg.joint_ids]
+    reward = torch.var(power, dim=1)
     reward *= torch.clamp(-asset.data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
-    return torch.sum(torch.square(q - q_default), dim=1)
+
+    # variance across joints for each environment
+    return reward
