@@ -274,10 +274,56 @@ class ObservationsCfg:
             # self.enable_corruption = False
             # self.concatenate_terms = True
 
+    @configclass
+    class PrivCfg(ObsGroup):
+        """Privileged physical parameters for the critic.
+
+        Absent from the policy group so the actor cannot directly observe them.
+        The BarlowTwins history encoder must implicitly infer them from proprio
+        history — this is the NP3O privileged-learning mechanism.
+        Mirrors ``LocomotionWithNP3O`` ``priv_latent`` subset that is cheaply
+        available from Isaac Lab's Articulation data without extra PhysX calls.
+        """
+
+        contact_state = ObsTerm(
+            func=mdp.contact_state,
+            params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_leg_4"])},
+            clip=(-1.0, 1.0),
+            scale=1.0,
+        )
+        joint_kp_factor = ObsTerm(
+            func=mdp.joint_kp_factor,
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
+            clip=(0.0, 2.0),
+            scale=1.0,
+        )
+        joint_kd_factor = ObsTerm(
+            func=mdp.joint_kd_factor,
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*", preserve_order=True)},
+            clip=(0.0, 2.0),
+            scale=1.0,
+        )
+
+    @configclass
+    class ScannerCfg(ObsGroup):
+        """Height-scan input for the critic / scan encoder.
+
+        Set to ``None`` on flat-terrain tasks where the scene has no
+        ``height_scanner``.
+        """
+
+        height_scan = ObsTerm(
+            func=mdp.height_scan,
+            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+            clip=(-1.0, 1.0),
+            scale=1.0,
+        )
+
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     critic: CriticCfg = CriticCfg()
-
+    priv: PrivCfg = PrivCfg()
+    scanner: ScannerCfg = ScannerCfg()
 
 @configclass
 class EventCfg:

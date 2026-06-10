@@ -64,8 +64,8 @@ class IsaacLabNP3OWrapper:
         # Each segment is its own ObsGroup so dims are inferred from shape, not
         # hard-coded.  ``priv`` contains privileged physical params; ``scanner``
         # contains height-scan data (None / missing on flat terrain).
-        priv_obs = obs_dict["priv"]              # always present (PrivCfg is in all envs)
-        scan_obs = obs_dict.get("scanner")       # optional: None on flat (scanner = None)
+        priv_obs = obs_dict.get("priv")       # optional: None if env has no PrivCfg
+        scan_obs = obs_dict.get("scanner")    # optional: None on flat terrain
 
         self.n_priv_latent = int(priv_obs.shape[-1]) if priv_obs is not None and priv_obs.shape[-1] > 0 else 0
         self.n_scan = int(scan_obs.shape[-1]) if scan_obs is not None and scan_obs.shape[-1] > 0 else 0
