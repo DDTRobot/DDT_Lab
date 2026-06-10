@@ -25,6 +25,7 @@ class TitaFlatEnvCfg(TitaRoughEnvCfg):
         # no height scan
         self.scene.height_scanner = None
         self.observations.policy.height_scan = None
+        self.observations.scanner = None   # scanner group requires height_scanner sensor
         # no terrain curriculum
         self.curriculum.terrain_levels = None
         # ------------------------------Events------------------------------
