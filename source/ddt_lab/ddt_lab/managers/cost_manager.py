@@ -141,11 +141,13 @@ class CostManager:
     def compute(self) -> torch.Tensor:
         """Return ``(num_envs, num_costs)`` per-step costs (clamped to >=0).
 
-        Side-effect: accumulates each term into ``self._episode_sums``."""
+        Side-effect: accumulates each term into ``self._episode_sums``,
+        multiplied by ``env.step_dt`` so the episode totals represent
+        time-integrated cost (e.g. cost-seconds)."""
         cols = []
         for name, term in self._terms:
             val = (term.func(self._env, **term.params) * term.scale).clamp_min_(0.0)
-            self._episode_sums[name] += val
+            self._episode_sums[name] += val * self._env.step_dt
             cols.append(val.unsqueeze(-1))
         return torch.cat(cols, dim=-1)
 
