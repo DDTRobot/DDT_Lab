@@ -175,7 +175,7 @@ class ActionsCfg:
     rr_leg_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=["RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        scale={".*_hip_joint": 0.125, ".*_thigh_joint": 0.25, ".*_calf_joint": 0.25},
+        scale={".*_hip_joint": 0.25, ".*_thigh_joint": 0.25, ".*_calf_joint": 0.25},
         clip={".*": (-100.0, 100.0)},
         use_default_offset=True,
         preserve_order=True,
@@ -442,22 +442,22 @@ class RewardsCfg:
 
     # -- task
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=12.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_exp, weight=8.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
 
     # -- root penalties
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
+    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.1)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-1.0)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-1.5)
     base_height_l2 = RewTerm(
         func=mdp.base_height_l2,
         weight=-1.0,
         params={
-            # "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
-            # "sensor_cfg": SceneEntityCfg("height_scanner_base"),
+             "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
+             "sensor_cfg": SceneEntityCfg("height_scanner_base"),
             "target_height": 0.45,
         },
     )
@@ -496,14 +496,42 @@ class RewardsCfg:
         },
     )
 
+    joint_pos_penalty = RewTerm(
+       func=mdp.joint_pos_penalty,
+       weight=-1.0,
+       params={
+          "command_name": "base_velocity",
+          "asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"]),
+          "stand_still_scale": 1.5,
+          "velocity_threshold": 0.02,
+          "command_threshold": 0.02,
+       },
+    )
+    wheel_vel = RewTerm(
+       func=mdp.wheel_vel_penalty,
+       weight=-0.1,
+       params={
+           "sensor_cfg": SceneEntityCfg(
+            "contact_forces", 
+            body_names=["FL_foot", "FR_foot", "RL_foot", "RR_foot"]  
+          ),
+           "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_foot_joint"]),
+           "command_name": "base_velocity",
+           "velocity_threshold": 0.1,
+           "command_threshold": 0.1,
+    },
+   )
 
+
+
+    
     # -- action penalties
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.02)
 
     # -- Contact sensor
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-1.0,
+        weight=-0.6,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=["^(?!.*_foot).*"]), "threshold": 1.0},
     )
     contact_forces = RewTerm(
@@ -518,18 +546,18 @@ class RewardsCfg:
     # -- optional penalties
     upward = RewTerm(
         func=mdp.upward,
-        weight=0.0,
+        weight=2.0,
     )
 
     # -- pose regularisation (D1FlatCfg.rewards.scales.{default_joint, hip_pos})
     default_joint_l2 = RewTerm(
         func=mdp.default_joint_l2,
-        weight= -0.0,
+        weight= -2.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
     hip_pos = RewTerm(
         func=mdp.default_joint_l2,
-        weight=-0.0,
+        weight=-2.0,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_joint"]),
         },
