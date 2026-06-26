@@ -69,3 +69,6 @@ tests/
 
 # Docker history
 .isaac-lab-docker-history
+
+# ROS2 control workspace (local)
+/ddt_ros2_control/
