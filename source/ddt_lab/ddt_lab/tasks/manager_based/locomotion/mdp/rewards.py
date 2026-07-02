@@ -1090,3 +1090,190 @@ def hip_mirror(
     q_right = asset.data.joint_pos[:, right_asset_cfg.joint_ids]  # (B, K_R)
     # symmetric ↔ sum ≈ 0
     return (q_left + q_right).pow(2).sum(dim=-1)
+
+
+# ------------------------------------------------------------------
+# D1H-specific reward functions
+# ------------------------------------------------------------------
+
+
+def keep_upright_only_reward(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    upright_gz_threshold: float,
+    time_coeff: float
+) -> torch.Tensor:
+    asset: RigidObject = env.scene[asset_cfg.name]
+    g_z = asset.data.projected_gravity_b[:, 2]
+
+    if not hasattr(env, "upright_timer_buf") or env.upright_timer_buf is None:
+        env.upright_timer_buf = torch.zeros(env.num_envs, device=env.device, dtype=torch.float32)
+
+    fully_upright_mask = (g_z <= upright_gz_threshold).float()
+
+    env.upright_timer_buf = torch.where(
+        fully_upright_mask > 0.5,
+        env.upright_timer_buf + env.step_dt,
+        torch.zeros_like(env.upright_timer_buf)
+    )
+
+    base_score = fully_upright_mask * 1.0
+    time_bonus = fully_upright_mask * env.upright_timer_buf * time_coeff
+    total_reward = base_score + time_bonus
+
+    return total_reward
+
+
+def reward_feet_air_time(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
+    command_name: str = "base_velocity",
+    min_air_t: float = 0.5,
+    force_threshold: float = 1.0
+) -> torch.Tensor:
+    contact_sensor = env.scene[sensor_cfg.name]
+    contact = contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > force_threshold
+    air_time = contact_sensor.data.air_time[:, sensor_cfg.body_ids]
+
+    landed = contact & (air_time > min_air_t)
+    rew_airTime = torch.sum(landed.float(), dim=-1)
+
+    cmd = env.command_manager.get_command(command_name)
+    moving_mask = torch.norm(cmd[:, :2], dim=1) > 0.1
+    rew_airTime *= moving_mask
+
+    return rew_airTime
+
+
+def reward_collision_head(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=["base_link"]),
+    threshold: float = 10.0
+) -> torch.Tensor:
+    contact_sensor = env.scene[sensor_cfg.name]
+    forces = torch.norm(contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, :], dim=-1)
+    return torch.sum((forces > threshold).float(), dim=-1)
+
+
+def reward_dof_thigh_vel(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", joint_names=[".*_thigh_joint"])
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    return torch.sum(torch.square(asset.data.joint_vel[:, asset_cfg.joint_ids]), dim=-1)
+
+
+def reward_body_pos_to_feet_x(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sigma: float
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    foot_body_names = ["FL_foot", "FR_foot"]
+    foot_ids = [asset.body_names.index(name) for name in foot_body_names]
+
+    feet_pos_w = asset.data.body_pos_w[:, foot_ids, :]
+    base_pos_w = asset.data.root_pos_w.unsqueeze(1)
+    base_quat_w = asset.data.root_quat_w
+
+    rel_w = feet_pos_w - base_pos_w
+    n_envs, n_feet = rel_w.shape[:2]
+    base_quat_w_expanded = base_quat_w.unsqueeze(1).expand(-1, n_feet, -1).reshape(-1, 4)
+    rel_w_flat = rel_w.reshape(-1, 3)
+    rel_b = quat_apply_inverse(base_quat_w_expanded, rel_w_flat).reshape(n_envs, n_feet, 3)
+
+    x_mean_abs = torch.abs(torch.mean(rel_b[:, :, 0], dim=1))
+    reward = torch.exp(-x_mean_abs / sigma)
+    return reward
+
+
+def reward_body_feet_distance_x(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sigma: float
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    foot_body_names = ["FL_foot", "FR_foot"]
+    foot_ids = [asset.body_names.index(name) for name in foot_body_names]
+
+    feet_pos_w = asset.data.body_pos_w[:, foot_ids, :]
+    base_quat_w = asset.data.root_quat_w
+
+    foot_diff_w = feet_pos_w[:, 0, :] - feet_pos_w[:, 1, :]
+    foot_diff_b = quat_apply_inverse(base_quat_w, foot_diff_w)
+
+    x_err = torch.abs(foot_diff_b[:, 0]) / sigma
+    reward = torch.square(x_err)
+    return reward
+
+
+def reward_body_feet_distance_y(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sigma: float,
+    desired_feet_distance: float
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    foot_body_names = ["FL_foot", "FR_foot"]
+    foot_ids = [asset.body_names.index(name) for name in foot_body_names]
+
+    feet_pos_w = asset.data.body_pos_w[:, foot_ids, :]
+    base_quat_w = asset.data.root_quat_w
+
+    foot_diff_w = feet_pos_w[:, 0, :] - feet_pos_w[:, 1, :]
+    foot_diff_b = quat_apply_inverse(base_quat_w, foot_diff_w)
+
+    y_abs = torch.abs(foot_diff_b[:, 1])
+    y_err = torch.abs(y_abs - desired_feet_distance) / sigma
+    reward = torch.square(y_err)
+    return reward
+
+
+def reward_body_symmetry_y(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sigma: float
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    foot_body_names = ["FL_foot", "FR_foot"]
+    foot_ids = [asset.body_names.index(name) for name in foot_body_names]
+
+    feet_pos_w = asset.data.body_pos_w[:, foot_ids, :]
+    base_pos_w = asset.data.root_pos_w.unsqueeze(1)
+    base_quat_w = asset.data.root_quat_w
+
+    rel_w = feet_pos_w - base_pos_w
+    rel_b_0 = quat_apply_inverse(base_quat_w, rel_w[:, 0, :])
+    rel_b_1 = quat_apply_inverse(base_quat_w, rel_w[:, 1, :])
+
+    y1_abs = torch.abs(rel_b_0[:, 1])
+    y2_abs = torch.abs(rel_b_1[:, 1])
+    sym_err = torch.abs(y1_abs - y2_abs)
+
+    reward = torch.exp(-sym_err / sigma)
+    return reward
+
+
+def reward_body_symmetry_z(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sigma: float
+) -> torch.Tensor:
+    asset = env.scene[asset_cfg.name]
+    foot_body_names = ["FL_foot", "FR_foot"]
+    foot_ids = [asset.body_names.index(name) for name in foot_body_names]
+
+    feet_pos_w = asset.data.body_pos_w[:, foot_ids, :]
+    base_pos_w = asset.data.root_pos_w.unsqueeze(1)
+    base_quat_w = asset.data.root_quat_w
+
+    rel_w = feet_pos_w - base_pos_w
+    rel_b_0 = quat_apply_inverse(base_quat_w, rel_w[:, 0, :])
+    rel_b_1 = quat_apply_inverse(base_quat_w, rel_w[:, 1, :])
+
+    z1_abs = torch.abs(rel_b_0[:, 2])
+    z2_abs = torch.abs(rel_b_1[:, 2])
+    sym_err = torch.abs(z1_abs - z2_abs)
+
+    reward = torch.exp(-sym_err / sigma)
+    return reward
