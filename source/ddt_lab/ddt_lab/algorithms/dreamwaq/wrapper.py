@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -17,8 +17,9 @@ No cost support — DreamWaQ is pure PPO + CeNet VAE.
 
 from __future__ import annotations
 
-import torch
 from types import SimpleNamespace
+
+import torch
 
 
 class IsaacLabDreamWaQWrapper:
@@ -50,8 +51,8 @@ class IsaacLabDreamWaQWrapper:
         self.history_len = int(policy_obs.shape[1])
         self.n_proprio = int(policy_obs.shape[-1])
 
-        priv_obs = obs_dict["priv"]              # always present
-        scan_obs = obs_dict.get("scanner")       # optional: None on flat terrain
+        priv_obs = obs_dict["priv"]  # always present
+        scan_obs = obs_dict.get("scanner")  # optional: None on flat terrain
         self.n_priv_latent = int(priv_obs.shape[-1]) if priv_obs is not None and priv_obs.shape[-1] > 0 else 0
         self.n_scan = int(scan_obs.shape[-1]) if scan_obs is not None and scan_obs.shape[-1] > 0 else 0
         self.n_critic = int(critic_obs.shape[-1]) + self.n_priv_latent + self.n_scan
@@ -105,9 +106,7 @@ class IsaacLabDreamWaQWrapper:
 
     def step(self, actions: torch.Tensor):
         """Returns ``(policy_obs, critic_obs, rewards, dones, infos)`` — no costs."""
-        obs_dict, rewards, terminated, truncated, extras = self.env.step(
-            actions.to(self.unwrapped.device)
-        )
+        obs_dict, rewards, terminated, truncated, extras = self.env.step(actions.to(self.unwrapped.device))
         policy_obs = obs_dict["policy"].to(self.device)
         critic_obs = self._concat_critic_obs(obs_dict)
         rewards = rewards.to(self.device)

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -21,10 +21,11 @@ Differences vs. the upstream reference:
   CriticCfg is already compact and goes straight into the critic MLP.
 """
 
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import warnings
 from torch.distributions import Normal
 
 from ..utils.common_modules import get_activation, mlp_batchnorm_factory, mlp_factory
@@ -40,33 +41,59 @@ def off_diagonal(x: torch.Tensor) -> torch.Tensor:
 class MlpBarlowTwinsActor(nn.Module):
     """Teacher actor with BarlowTwins SSL on the history encoder."""
 
-    def __init__(self, num_prop, bt_window, num_actions, mlp_encoder_dims, latent_encoder_dims, actor_dims, projector_encoder_dims, activation):
+    def __init__(
+        self,
+        num_prop,
+        bt_window,
+        num_actions,
+        mlp_encoder_dims,
+        latent_encoder_dims,
+        actor_dims,
+        projector_encoder_dims,
+        activation,
+    ):
         super().__init__()
         self.num_prop = num_prop
         self.bt_window = bt_window  # number of history frames consumed by the encoder
 
         self.obs_normalizer = EmpiricalNormalization(shape=num_prop)
 
-        self.mlp_encoder = nn.Sequential(*mlp_batchnorm_factory(
-            activation=activation, input_dims=num_prop * bt_window, out_dims=None, hidden_dims=mlp_encoder_dims,
-        ))
-        self.latent_layer = nn.Sequential(*mlp_batchnorm_factory(
-            activation=activation, input_dims=mlp_encoder_dims[-1],
-            out_dims=latent_encoder_dims[-1], hidden_dims=[latent_encoder_dims[-2]],
-        ))
+        self.mlp_encoder = nn.Sequential(
+            *mlp_batchnorm_factory(
+                activation=activation,
+                input_dims=num_prop * bt_window,
+                out_dims=None,
+                hidden_dims=mlp_encoder_dims,
+            )
+        )
+        self.latent_layer = nn.Sequential(
+            *mlp_batchnorm_factory(
+                activation=activation,
+                input_dims=mlp_encoder_dims[-1],
+                out_dims=latent_encoder_dims[-1],
+                hidden_dims=[latent_encoder_dims[-2]],
+            )
+        )
         self.vel_layer = nn.Linear(mlp_encoder_dims[-1], 3)
 
         latent_dim = latent_encoder_dims[-1]
         actor_input_dim = latent_dim + num_prop + 3  # latent + current proprio + predicted vel
-        self.actor = nn.Sequential(*mlp_factory(
-            activation=activation, input_dims=actor_input_dim,
-            out_dims=num_actions, hidden_dims=actor_dims,
-        ))
+        self.actor = nn.Sequential(
+            *mlp_factory(
+                activation=activation,
+                input_dims=actor_input_dim,
+                out_dims=num_actions,
+                hidden_dims=actor_dims,
+            )
+        )
 
         self.projector = nn.Sequential(
             *mlp_batchnorm_factory(
-                activation=activation, input_dims=latent_dim,
-                out_dims=projector_encoder_dims[-1], hidden_dims=projector_encoder_dims, bias=False,
+                activation=activation,
+                input_dims=latent_dim,
+                out_dims=projector_encoder_dims[-1],
+                hidden_dims=projector_encoder_dims,
+                bias=False,
             ),
             nn.BatchNorm1d(projector_encoder_dims[-1], affine=False),
         )
@@ -107,8 +134,8 @@ class MlpBarlowTwinsActor(nn.Module):
         full = torch.cat([hist[:, 1:, :], current.unsqueeze(1)], dim=1)
         b = current.shape[0]
 
-        z1 = self.mlp_encoder(full.reshape(b, -1))    # ends at t
-        z2 = self.mlp_encoder(hist.reshape(b, -1))    # ends at t-1
+        z1 = self.mlp_encoder(full.reshape(b, -1))  # ends at t
+        z2 = self.mlp_encoder(hist.reshape(b, -1))  # ends at t-1
 
         z1_l = self.latent_layer(z1)
         z1_v = self.vel_layer(z1)
@@ -147,22 +174,22 @@ class ActorCriticBarlowTwins(nn.Module):
         bt_mlp_encoder_dims=(128, 64),
         bt_latent_encoder_dims=(32, 16),
         bt_projector_dims=(64,),
-        activation='elu',
+        activation="elu",
         init_noise_std=1.0,
         imi_flag=True,
         **kwargs,
     ):
         if kwargs:
             warnings.warn(
-                f'[ActorCriticBarlowTwins] unexpected kwargs will be ignored: {list(kwargs.keys())}. '
-                'Check your policy cfg for typos.',
+                f"[ActorCriticBarlowTwins] unexpected kwargs will be ignored: {list(kwargs.keys())}. "
+                "Check your policy cfg for typos.",
                 stacklevel=2,
             )
         super().__init__()
         if history_len < bt_window + 1:
             raise ValueError(
-                f'history_len ({history_len}) must be >= bt_window + 1 ({bt_window + 1}); '
-                'BarlowTwins needs an extra past frame for the second view.'
+                f"history_len ({history_len}) must be >= bt_window + 1 ({bt_window + 1}); "
+                "BarlowTwins needs an extra past frame for the second view."
             )
 
         self.num_prop = num_prop
@@ -196,45 +223,51 @@ class ActorCriticBarlowTwins(nn.Module):
         # Flat tasks set n_scan=0, encoder is bypassed entirely.
         if num_scan > 0 and len(scan_encoder_dims) > 0:
             scan_enc_layers = mlp_factory(
-                activation_module, num_scan, scan_encoder_dims[-1],
-                list(scan_encoder_dims[:-1]), last_act=False,
+                activation_module,
+                num_scan,
+                scan_encoder_dims[-1],
+                list(scan_encoder_dims[:-1]),
+                last_act=False,
             )
             self.scan_encoder = nn.Sequential(*scan_enc_layers)
             scan_encoder_output_dim = scan_encoder_dims[-1]
-            print(f'[ActorCriticBarlowTwins] scan_encoder: {self.scan_encoder}')
+            print(f"[ActorCriticBarlowTwins] scan_encoder: {self.scan_encoder}")
         else:
             self.scan_encoder = None
             scan_encoder_output_dim = num_scan  # 0 for flat (no scan)
             if num_scan > 0:
-                print(f'[ActorCriticBarlowTwins] scan_encoder: Identity ({num_scan} dims)')
+                print(f"[ActorCriticBarlowTwins] scan_encoder: Identity ({num_scan} dims)")
             else:
-                print(f'[ActorCriticBarlowTwins] scan_encoder: None (n_scan=0)')
+                print("[ActorCriticBarlowTwins] scan_encoder: None (n_scan=0)")
 
         # ---- privileged encoder (Identity if priv_encoder_dims=[]) ----
         if len(priv_encoder_dims) > 0:
             priv_enc_layers = mlp_factory(
-                activation_module, num_priv_latent, None,
-                list(priv_encoder_dims), last_act=True,
+                activation_module,
+                num_priv_latent,
+                None,
+                list(priv_encoder_dims),
+                last_act=True,
             )
             self.priv_encoder = nn.Sequential(*priv_enc_layers)
             priv_encoder_output_dim = priv_encoder_dims[-1]
-            print(f'[ActorCriticBarlowTwins] priv_encoder: {self.priv_encoder}')
+            print(f"[ActorCriticBarlowTwins] priv_encoder: {self.priv_encoder}")
         else:
             self.priv_encoder = nn.Identity()
             priv_encoder_output_dim = num_priv_latent
-            print(f'[ActorCriticBarlowTwins] priv_encoder: Identity ({num_priv_latent} dims pass-through)')
+            print(f"[ActorCriticBarlowTwins] priv_encoder: Identity ({num_priv_latent} dims pass-through)")
 
         # ---- critic V(s) and cost C(s) ----
         # Input = prop_for_critic + scan_encoded + priv_encoded
         # Matches reference: [obs_prop | scan_latent | priv_encoded]
         critic_input_dim = self.num_prop_for_critic + scan_encoder_output_dim + priv_encoder_output_dim
         self.critic_obs_normalizer = EmpiricalNormalization(num_critic_obs)
-        critic_layers = mlp_factory(activation_module, critic_input_dim, 1,
-                                    list(critic_hidden_dims), last_act=False)
+        critic_layers = mlp_factory(activation_module, critic_input_dim, 1, list(critic_hidden_dims), last_act=False)
         self.critic = nn.Sequential(*critic_layers)
 
-        cost_layers = mlp_factory(activation_module, critic_input_dim, max(num_costs, 1),
-                                  list(critic_hidden_dims), last_act=False)
+        cost_layers = mlp_factory(
+            activation_module, critic_input_dim, max(num_costs, 1), list(critic_hidden_dims), last_act=False
+        )
         cost_layers.append(nn.Softplus())
         self.cost = nn.Sequential(*cost_layers)
 
@@ -246,9 +279,9 @@ class ActorCriticBarlowTwins(nn.Module):
         self.distribution = None
         Normal.set_default_validate_args = False
 
-        print(f'[ActorCriticBarlowTwins] actor: {self.actor_teacher_backbone}')
-        print(f'[ActorCriticBarlowTwins] critic: {self.critic}')
-        print(f'[ActorCriticBarlowTwins] cost: {self.cost}')
+        print(f"[ActorCriticBarlowTwins] actor: {self.actor_teacher_backbone}")
+        print(f"[ActorCriticBarlowTwins] critic: {self.critic}")
+        print(f"[ActorCriticBarlowTwins] cost: {self.cost}")
 
     def reset(self, dones=None):
         pass
@@ -278,9 +311,9 @@ class ActorCriticBarlowTwins(nn.Module):
         preceding it (the slot just before current is the "second view").
         """
         if policy_obs.dim() != 3:
-            raise ValueError(f'policy_obs must be 3D (B, T, D); got {tuple(policy_obs.shape)}')
+            raise ValueError(f"policy_obs must be 3D (B, T, D); got {tuple(policy_obs.shape)}")
         current = policy_obs[:, -1, :]
-        hist = policy_obs[:, -self.bt_window - 1:-1, :]
+        hist = policy_obs[:, -self.bt_window - 1 : -1, :]
         return current, hist
 
     # ----- actor
@@ -318,7 +351,7 @@ class ActorCriticBarlowTwins(nn.Module):
         a pass-through (D1FlatCfgPPO default: ``priv_encoder_dims=[]``).
         """
         normed = self.critic_obs_normalizer(critic_obs)
-        prop = normed[:, :self.num_prop_for_critic]
+        prop = normed[:, : self.num_prop_for_critic]
 
         # Critic layout: [prop | priv | scan]
         # Matches reference: backbone_input = cat([obs_prop, priv_latent, scan_latent])
@@ -440,9 +473,9 @@ class _InferenceWrapper(torch.nn.Module):
         history_n = self.backbone.obs_normalizer(history.reshape(-1, d)).reshape(b, t, d)
 
         # 2) reference-style slice → concat → slice
-        drop_first = history_n[:, 1:, :]                                  # (B, history_len-1, num_prop)
-        full = torch.cat([drop_first, current_n.unsqueeze(1)], dim=1)      # (B, history_len, num_prop)
-        window = full[:, -self.bt_window:, :]                              # (B, bt_window, num_prop)
+        drop_first = history_n[:, 1:, :]  # (B, history_len-1, num_prop)
+        full = torch.cat([drop_first, current_n.unsqueeze(1)], dim=1)  # (B, history_len, num_prop)
+        window = full[:, -self.bt_window :, :]  # (B, bt_window, num_prop)
 
         # 3) BarlowTwins MLP encoder + vel/latent heads + actor MLP
         latent = self.backbone.mlp_encoder(window.reshape(current_n.shape[0], -1))

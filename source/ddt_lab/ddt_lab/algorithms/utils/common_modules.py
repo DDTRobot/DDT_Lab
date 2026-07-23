@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -15,22 +15,20 @@ import torch.nn as nn
 
 
 def get_activation(act_name):
-    if act_name == 'elu':
+    if act_name == "elu":
         return nn.ELU()
-    elif act_name == 'selu':
+    elif act_name == "selu":
         return nn.SELU()
-    elif act_name == 'relu':
+    elif act_name in ("relu", "crelu"):
         return nn.ReLU()
-    elif act_name == 'crelu':
-        return nn.ReLU()
-    elif act_name == 'lrelu':
+    elif act_name == "lrelu":
         return nn.LeakyReLU()
-    elif act_name == 'tanh':
+    elif act_name == "tanh":
         return nn.Tanh()
-    elif act_name == 'sigmoid':
+    elif act_name == "sigmoid":
         return nn.Sigmoid()
     else:
-        print('invalid activation function!')
+        print("invalid activation function!")
         return None
 
 
@@ -38,8 +36,8 @@ def mlp_factory(activation, input_dims, out_dims, hidden_dims, last_act=False):
     layers = []
     layers.append(nn.Linear(input_dims, hidden_dims[0]))
     layers.append(activation)
-    for l in range(len(hidden_dims) - 1):
-        layers.append(nn.Linear(hidden_dims[l], hidden_dims[l + 1]))
+    for i in range(len(hidden_dims) - 1):
+        layers.append(nn.Linear(hidden_dims[i], hidden_dims[i + 1]))
         layers.append(activation)
     if out_dims:
         layers.append(nn.Linear(hidden_dims[-1], out_dims))
@@ -53,9 +51,9 @@ def mlp_batchnorm_factory(activation, input_dims, out_dims, hidden_dims, last_ac
     layers.append(nn.Linear(input_dims, hidden_dims[0], bias=bias))
     layers.append(nn.BatchNorm1d(hidden_dims[0]))
     layers.append(activation)
-    for l in range(len(hidden_dims) - 1):
-        layers.append(nn.Linear(hidden_dims[l], hidden_dims[l + 1], bias=bias))
-        layers.append(nn.BatchNorm1d(hidden_dims[l + 1]))
+    for i in range(len(hidden_dims) - 1):
+        layers.append(nn.Linear(hidden_dims[i], hidden_dims[i + 1], bias=bias))
+        layers.append(nn.BatchNorm1d(hidden_dims[i + 1]))
         layers.append(activation)
     if out_dims:
         layers.append(nn.Linear(hidden_dims[-1], out_dims, bias=bias))

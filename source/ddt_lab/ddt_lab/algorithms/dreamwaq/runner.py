@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -51,9 +51,7 @@ class OnPolicyRunner:
     def _get_actor_critic_class(self, name: str):
         registry = {"ActorCriticDreamWaQ": ActorCriticDreamWaQ}
         if name not in registry:
-            raise KeyError(
-                f"Unknown policy_class_name '{name}'. Available: {list(registry.keys())}"
-            )
+            raise KeyError(f"Unknown policy_class_name '{name}'. Available: {list(registry.keys())}")
         return registry[name]
 
     def __init__(self, env, train_cfg: dict, log_dir=None, device="cpu"):
@@ -73,9 +71,7 @@ class OnPolicyRunner:
         ).to(self.device)
 
         alg_class = {"PPO_DreamWaQ": PPO_DreamWaQ}[self.cfg["algorithm_class_name"]]
-        self.alg: PPO_DreamWaQ = alg_class(
-            actor_critic, device=self.device, **self.alg_cfg
-        )
+        self.alg: PPO_DreamWaQ = alg_class(actor_critic, device=self.device, **self.alg_cfg)
 
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]
@@ -207,11 +203,7 @@ class OnPolicyRunner:
             self.writer.add_scalar("Train/mean_reward", statistics.mean(locs["rewbuffer"]), locs["it"])
             self.writer.add_scalar("Train/mean_episode_length", statistics.mean(locs["lenbuffer"]), locs["it"])
 
-        header = (
-            f" \033[1m Learning iteration "
-            f"{locs['it']}/{locs['tot_iter']}"
-            f" \033[0m "
-        )
+        header = f" \033[1m Learning iteration {locs['it']}/{locs['tot_iter']} \033[0m "
         log_string = (
             f"{'#' * width}\n{header.center(width, ' ')}\n\n"
             f"{'Computation:':>{pad}} {fps:.0f} steps/s "
@@ -242,13 +234,16 @@ class OnPolicyRunner:
         _console_write(log_string)
 
     def save(self, path, infos=None):
-        torch.save({
-            "model_state_dict": self.alg.actor_critic.state_dict(),
-            "optimizer_state_dict": self.alg.optimizer.state_dict(),
-            "vae_optimizer_state_dict": self.alg.vae_optimizer.state_dict(),
-            "iter": self.current_learning_iteration,
-            "infos": infos,
-        }, path)
+        torch.save(
+            {
+                "model_state_dict": self.alg.actor_critic.state_dict(),
+                "optimizer_state_dict": self.alg.optimizer.state_dict(),
+                "vae_optimizer_state_dict": self.alg.vae_optimizer.state_dict(),
+                "iter": self.current_learning_iteration,
+                "infos": infos,
+            },
+            path,
+        )
 
     def load(self, path: str, load_optimizer: bool = True):
         loaded = torch.load(path, map_location=self.device)

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -34,7 +34,17 @@ class RolloutStorageWithCost:
         def clear(self):
             self.__init__()
 
-    def __init__(self, num_envs, num_transitions_per_env, obs_shape, privileged_obs_shape, actions_shape, cost_shape, cost_d_values, device='cpu'):
+    def __init__(
+        self,
+        num_envs,
+        num_transitions_per_env,
+        obs_shape,
+        privileged_obs_shape,
+        actions_shape,
+        cost_shape,
+        cost_d_values,
+        device="cpu",
+    ):
         self.device = device
         self.obs_shape = obs_shape
         self.cost_shape = cost_shape
@@ -43,7 +53,9 @@ class RolloutStorageWithCost:
 
         self.observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
         if privileged_obs_shape[0] is not None:
-            self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device)
+            self.privileged_observations = torch.zeros(
+                num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device
+            )
         else:
             self.privileged_observations = None
         self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
@@ -72,7 +84,7 @@ class RolloutStorageWithCost:
 
     def add_transitions(self, transition):
         if self.step >= self.num_transitions_per_env:
-            raise AssertionError('Rollout buffer overflow')
+            raise AssertionError("Rollout buffer overflow")
         self.observations[self.step].copy_(transition.observations)
         if self.privileged_observations is not None:
             self.privileged_observations[self.step].copy_(transition.critic_observations)
@@ -94,8 +106,12 @@ class RolloutStorageWithCost:
         hid_a = hidden_states[0] if isinstance(hidden_states[0], tuple) else (hidden_states[0],)
         hid_c = hidden_states[1] if isinstance(hidden_states[1], tuple) else (hidden_states[1],)
         if self.saved_hidden_states_a is None:
-            self.saved_hidden_states_a = [torch.zeros(self.observations.shape[0], *hid_a[i].shape, device=self.device) for i in range(len(hid_a))]
-            self.saved_hidden_states_c = [torch.zeros(self.observations.shape[0], *hid_c[i].shape, device=self.device) for i in range(len(hid_c))]
+            self.saved_hidden_states_a = [
+                torch.zeros(self.observations.shape[0], *hid_a[i].shape, device=self.device) for i in range(len(hid_a))
+            ]
+            self.saved_hidden_states_c = [
+                torch.zeros(self.observations.shape[0], *hid_c[i].shape, device=self.device) for i in range(len(hid_c))
+            ]
         for i in range(len(hid_a)):
             self.saved_hidden_states_a[i][self.step].copy_(hid_a[i])
             self.saved_hidden_states_c[i][self.step].copy_(hid_c[i])
@@ -126,8 +142,12 @@ class RolloutStorageWithCost:
         self.cost_advantages = self.cost_returns - self.cost_values
         cost_adv_mean = self.cost_advantages.view(self.num_envs * self.num_transitions_per_env, -1).mean(0)
         cost_adv_std = self.cost_advantages.view(self.num_envs * self.num_transitions_per_env, -1).std(0)
-        self.cost_advantages = (self.cost_advantages - cost_adv_mean.view(1, 1, -1)) / (cost_adv_std.view(1, 1, -1) + 1e-8)
-        self.cost_violation = ((1.0 - gamma) * (self.cost_returns - self.cost_d_values) + cost_adv_mean.view(1, 1, -1)) / (cost_adv_std.view(1, 1, -1) + 1e-8)
+        self.cost_advantages = (self.cost_advantages - cost_adv_mean.view(1, 1, -1)) / (
+            cost_adv_std.view(1, 1, -1) + 1e-8
+        )
+        self.cost_violation = (
+            (1.0 - gamma) * (self.cost_returns - self.cost_d_values) + cost_adv_mean.view(1, 1, -1)
+        ) / (cost_adv_std.view(1, 1, -1) + 1e-8)
 
     def mini_batch_generator(self, num_mini_batches, num_epochs=8):
         batch_size = self.num_envs * self.num_transitions_per_env
@@ -210,14 +230,32 @@ class RolloutStorageWithCost:
                 old_actions_log_prob_batch = self.actions_log_prob[:, start:stop]
 
                 last_was_done = last_was_done.permute(1, 0)
-                hid_a_batch = [s.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous() for s in self.saved_hidden_states_a]
-                hid_c_batch = [s.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous() for s in self.saved_hidden_states_c]
+                hid_a_batch = [
+                    s.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous()
+                    for s in self.saved_hidden_states_a
+                ]
+                hid_c_batch = [
+                    s.permute(2, 0, 1, 3)[last_was_done][first_traj:last_traj].transpose(1, 0).contiguous()
+                    for s in self.saved_hidden_states_c
+                ]
                 hid_a_batch = hid_a_batch[0] if len(hid_a_batch) == 1 else hid_a_batch
                 hid_c_batch = hid_c_batch[0] if len(hid_c_batch) == 1 else hid_a_batch
 
                 yield (
-                    obs_batch, critic_obs_batch, actions_batch, values_batch, advantages_batch, returns_batch,
-                    old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (hid_a_batch, hid_c_batch), masks_batch,
-                    cost_values_batch, cost_advantage_batch, cost_returns_batch, cost_violation_batch,
+                    obs_batch,
+                    critic_obs_batch,
+                    actions_batch,
+                    values_batch,
+                    advantages_batch,
+                    returns_batch,
+                    old_actions_log_prob_batch,
+                    old_mu_batch,
+                    old_sigma_batch,
+                    (hid_a_batch, hid_c_batch),
+                    masks_batch,
+                    cost_values_batch,
+                    cost_advantage_batch,
+                    cost_returns_batch,
+                    cost_violation_batch,
                 )
                 first_traj = last_traj

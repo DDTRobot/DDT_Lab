@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -10,6 +10,7 @@ k_value Lagrangian schedule, BarlowTwins imitation loss, adaptive-KL LR).
 """
 
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -38,9 +39,9 @@ class NP3O:
         learning_rate=1e-3,
         max_grad_norm=1.0,
         use_clipped_value_loss=True,
-        schedule='fixed',
+        schedule="fixed",
         desired_kl=0.01,
-        device='cpu',
+        device="cpu",
         dagger_update_freq=20,
         priv_reg_coef_schedual=[0, 0, 0],
         **kwargs,
@@ -55,7 +56,7 @@ class NP3O:
         self.storage = None
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=learning_rate)
 
-        self.imi_flag = hasattr(self.actor_critic, 'imitation_learning_loss') and self.actor_critic.imi_flag
+        self.imi_flag = hasattr(self.actor_critic, "imitation_learning_loss") and self.actor_critic.imi_flag
         print(f'Running with imitation: {"ON" if self.imi_flag else "OFF"}')
         self.imi_weight = 1
 
@@ -77,8 +78,26 @@ class NP3O:
         self.k_value = k_value
         self.substeps = 1
 
-    def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, cost_shape, cost_d_values):
-        self.storage = RolloutStorageWithCost(num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape, cost_shape, cost_d_values, self.device)
+    def init_storage(
+        self,
+        num_envs,
+        num_transitions_per_env,
+        actor_obs_shape,
+        critic_obs_shape,
+        action_shape,
+        cost_shape,
+        cost_d_values,
+    ):
+        self.storage = RolloutStorageWithCost(
+            num_envs,
+            num_transitions_per_env,
+            actor_obs_shape,
+            critic_obs_shape,
+            action_shape,
+            cost_shape,
+            cost_d_values,
+            self.device,
+        )
 
     def test_mode(self):
         self.actor_critic.test()
@@ -111,8 +130,8 @@ class NP3O:
         self.transition.costs = costs.clone()
         self.transition.dones = dones
 
-        if 'time_outs' in infos:
-            time_outs = infos['time_outs'].unsqueeze(1).to(self.device)
+        if "time_outs" in infos:
+            time_outs = infos["time_outs"].unsqueeze(1).to(self.device)
             self.transition.rewards += self.gamma * torch.squeeze(self.transition.values * time_outs, 1)
             self.transition.costs += self.gamma * (self.transition.costs * time_outs)
 
@@ -147,17 +166,21 @@ class NP3O:
 
     def compute_value_loss(self, target_values_batch, value_batch, returns_batch):
         if self.use_clipped_value_loss:
-            value_clipped = target_values_batch + (value_batch - target_values_batch).clamp(-self.clip_param, self.clip_param)
+            value_clipped = target_values_batch + (value_batch - target_values_batch).clamp(
+                -self.clip_param, self.clip_param
+            )
             value_losses = (value_batch - returns_batch).pow(2)
             value_losses_clipped = (value_clipped - returns_batch).pow(2)
             return torch.max(value_losses, value_losses_clipped).mean()
         return (returns_batch - value_batch).pow(2).mean()
 
     def update_k_value(self, iteration):
-        self.k_value = torch.min(torch.ones_like(self.k_value), self.k_value * (1.0004 ** iteration))
+        self.k_value = torch.min(torch.ones_like(self.k_value), self.k_value * (1.0004**iteration))
         return self.k_value
 
-    def compute_constraint_violation_loss(self, actions_log_prob_batch, old_actions_log_prob_batch, cost_advantages_batch, cost_violation_batch):
+    def compute_constraint_violation_loss(
+        self, actions_log_prob_batch, old_actions_log_prob_batch, cost_advantages_batch, cost_violation_batch
+    ):
         cost_surrogate_loss = self.compute_cost_surrogate_loss(
             actions_log_prob_batch=actions_log_prob_batch,
             old_actions_log_prob_batch=old_actions_log_prob_batch,
@@ -173,7 +196,7 @@ class NP3O:
         elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
             self.learning_rate = min(1e-2, self.learning_rate * 1.5)
         for param_group in self.optimizer.param_groups:
-            param_group['lr'] = self.learning_rate
+            param_group["lr"] = self.learning_rate
 
     def update(self):
         mean_value_loss = 0
@@ -189,8 +212,7 @@ class NP3O:
         else:
             generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
 
-        batch_count = 0
-        for (
+        for batch_count, (
             obs_batch,
             critic_obs_batch,
             actions_batch,
@@ -206,22 +228,27 @@ class NP3O:
             cost_advantages_batch,
             cost_returns_batch,
             cost_violation_batch,
-        ) in generator:
+        ) in enumerate(generator, start=1):
             self.actor_critic.act(obs_batch, masks=masks_batch, hidden_states=hid_states_batch[0])
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
-            value_batch = self.actor_critic.evaluate(critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1])
-            cost_value_batch = self.actor_critic.evaluate_cost(critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1])
+            value_batch = self.actor_critic.evaluate(
+                critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1]
+            )
+            cost_value_batch = self.actor_critic.evaluate_cost(
+                critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1]
+            )
 
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy
 
-            if self.desired_kl is not None and self.schedule == 'adaptive':
+            if self.desired_kl is not None and self.schedule == "adaptive":
                 with torch.inference_mode():
                     kl = torch.sum(
                         torch.log(sigma_batch / old_sigma_batch + 1.0e-5)
                         + (torch.square(old_sigma_batch) + torch.square(old_mu_batch - mu_batch))
-                        / (2.0 * torch.square(sigma_batch)) - 0.5,
+                        / (2.0 * torch.square(sigma_batch))
+                        - 0.5,
                         axis=-1,
                     )
                     kl_mean = torch.mean(kl)
@@ -238,8 +265,14 @@ class NP3O:
                 cost_advantages_batch=cost_advantages_batch,
                 cost_violation_batch=cost_violation_batch,
             )
-            value_loss = self.compute_value_loss(target_values_batch=target_values_batch, value_batch=value_batch, returns_batch=returns_batch)
-            cost_value_loss = self.compute_value_loss(target_values_batch=target_cost_values_batch, value_batch=cost_value_batch, returns_batch=cost_returns_batch)
+            value_loss = self.compute_value_loss(
+                target_values_batch=target_values_batch, value_batch=value_batch, returns_batch=returns_batch
+            )
+            cost_value_loss = self.compute_value_loss(
+                target_values_batch=target_cost_values_batch,
+                value_batch=cost_value_batch,
+                returns_batch=cost_returns_batch,
+            )
             entropy_loss = -self.entropy_coef * entropy_batch.mean()
 
             main_loss = surrogate_loss + self.cost_viol_loss_coef * viol_loss
@@ -265,7 +298,6 @@ class NP3O:
 
             if self.imi_flag:
                 mean_imitation_loss += imitation_loss.item()
-            batch_count += 1
 
         num_updates = batch_count
         mean_value_loss /= num_updates
@@ -276,4 +308,12 @@ class NP3O:
 
         self.storage.clear()
 
-        return (mean_value_loss, mean_cost_value_loss, mean_viol_loss, mean_surrogate_loss, mean_imitation_loss, obs_batch_min, obs_batch_max)
+        return (
+            mean_value_loss,
+            mean_cost_value_loss,
+            mean_viol_loss,
+            mean_surrogate_loss,
+            mean_imitation_loss,
+            obs_batch_min,
+            obs_batch_max,
+        )

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -91,15 +91,24 @@ class PrivilegedObservationsCfg(ObservationsCfg):
 @configclass
 class CostsCfg:
     joint_pos_limit = CostTermCfg(
-        func=mdp.joint_pos_limit, scale=1.0, d_value=0.0, k_value=0.01,
+        func=mdp.joint_pos_limit,
+        scale=1.0,
+        d_value=0.0,
+        k_value=0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
     joint_vel_limit = CostTermCfg(
-        func=mdp.joint_vel_limit, scale=1.0, d_value=0.0, k_value=0.01,
+        func=mdp.joint_vel_limit,
+        scale=1.0,
+        d_value=0.0,
+        k_value=0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
     )
     joint_torque_limit = CostTermCfg(
-        func=mdp.joint_torque_limit, scale=1.0, d_value=0.0, k_value=0.01,
+        func=mdp.joint_torque_limit,
+        scale=1.0,
+        d_value=0.0,
+        k_value=0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
     )
 
@@ -121,6 +130,7 @@ class D1RoughNP3OEnvCfg(D1RoughEnvCfg):
         # ------------------------------Curriculums------------------------------
         self.curriculum.command_levels_lin_vel = None
         self.curriculum.command_levels_ang_vel = None
+
 
 @configclass
 class D1RoughNP3OEnvCfg_PLAY(D1RoughNP3OEnvCfg):

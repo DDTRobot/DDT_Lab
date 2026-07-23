@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -26,9 +26,9 @@ Env requirements:
 
 from __future__ import annotations
 
-import torch
 from types import SimpleNamespace
 
+import torch
 from ddt_lab.managers import CostManager
 
 
@@ -64,8 +64,8 @@ class IsaacLabNP3OWrapper:
         # Each segment is its own ObsGroup so dims are inferred from shape, not
         # hard-coded.  ``priv`` contains privileged physical params; ``scanner``
         # contains height-scan data (None / missing on flat terrain).
-        priv_obs = obs_dict.get("priv")       # optional: None if env has no PrivCfg
-        scan_obs = obs_dict.get("scanner")    # optional: None on flat terrain
+        priv_obs = obs_dict.get("priv")  # optional: None if env has no PrivCfg
+        scan_obs = obs_dict.get("scanner")  # optional: None on flat terrain
 
         self.n_priv_latent = int(priv_obs.shape[-1]) if priv_obs is not None and priv_obs.shape[-1] > 0 else 0
         self.n_scan = int(scan_obs.shape[-1]) if scan_obs is not None and scan_obs.shape[-1] > 0 else 0
@@ -91,7 +91,10 @@ class IsaacLabNP3OWrapper:
             self.num_costs = max(num_costs, 1)
             self.cost_k_values = torch.zeros(1, self.num_costs, device=self.device)
             self.cost_d_values_tensor = torch.zeros(1, 1, self.num_costs, device=self.device)
-            print("[IsaacLabNP3OWrapper] no env_cfg.costs declared — running with zero-cost placeholder (NP3O ≡ PPO+BarlowTwins).")
+            print(
+                "[IsaacLabNP3OWrapper] no env_cfg.costs declared — running with zero-cost placeholder (NP3O ≡"
+                " PPO+BarlowTwins)."
+            )
 
         # ---- runner-facing shapes (kept as plain attributes; runner reads them)
         self.policy_obs_shape = (self.history_len, self.n_proprio)

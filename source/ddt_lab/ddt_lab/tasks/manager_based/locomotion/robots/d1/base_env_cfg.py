@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -6,7 +6,6 @@ import math
 
 import ddt_lab.tasks.manager_based.locomotion.mdp as mdp
 import isaaclab.sim as sim_utils
-from ddt_lab.managers import CostTermCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import CurriculumTermCfg as CurrTerm
@@ -101,7 +100,7 @@ class CommandsCfg:
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
         resampling_time_range=(10.0, 10.0),
-        rel_standing_envs=0.15,   # 15% envs always get zero cmd → learns stand-still
+        rel_standing_envs=0.15,  # 15% envs always get zero cmd → learns stand-still
         rel_heading_envs=1.0,
         heading_command=True,
         heading_control_stiffness=0.5,
@@ -282,6 +281,7 @@ class ObservationsCfg:
             clip=(-1.0, 1.0),
             scale=1.0,
         )
+
         def __post_init__(self):
             pass
             # self.enable_corruption = False
@@ -504,7 +504,7 @@ class RewardsCfg:
     )
     power_distribution_var = RewTerm(
         func=mdp.power_distribution_var,
-        weight=-1e-5,    # paper: -1e-5 — penalises uneven per-joint power
+        weight=-1e-5,  # paper: -1e-5 — penalises uneven per-joint power
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"]),
         },
@@ -537,7 +537,7 @@ class RewardsCfg:
     # -- pose regularisation (D1FlatCfg.rewards.scales.{default_joint, hip_pos})
     default_joint_l2 = RewTerm(
         func=mdp.default_joint_l2,
-        weight= -0.0,
+        weight=-0.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
     hip_pos = RewTerm(
@@ -554,7 +554,7 @@ class RewardsCfg:
     # -- wheel-legged gait shaping (core trio for lin_x rolling / lin_y+ang_z stepping)
     wheel_scrub_penalty = RewTerm(
         func=mdp.wheel_scrub_penalty,
-        weight=-0.0,   # penalise lateral foot contact during lin_y/ang_z
+        weight=-0.0,  # penalise lateral foot contact during lin_y/ang_z
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
             "command_name": "base_velocity",
@@ -564,23 +564,23 @@ class RewardsCfg:
     )
     foot_clearance = RewTerm(
         func=mdp.foot_clearance,
-        weight=0.5,    # reward swing-foot lift height during lin_y / ang_z; penalise it otherwise
+        weight=0.5,  # reward swing-foot lift height during lin_y / ang_z; penalise it otherwise
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
             "command_name": "base_velocity",
             "target_height": 0.02,
             "std": 0.04,
             "wheel_radius": 0.1,
-            "command_threshold": 0.10,   # match hip_pos/wheel_scrub_penalty gating
-            "max_air_time": 0.3,         # decay reward if a foot hovers past ~1 swing phase
-            "min_contact": 2,            # never let more than 2 feet leave the ground at once
-            "lift_penalty_scale": 200.0,   # penalise clearance above wheel_radius when cmd≈0 or pure lin_x
+            "command_threshold": 0.10,  # match hip_pos/wheel_scrub_penalty gating
+            "max_air_time": 0.3,  # decay reward if a foot hovers past ~1 swing phase
+            "min_contact": 2,  # never let more than 2 feet leave the ground at once
+            "lift_penalty_scale": 200.0,  # penalise clearance above wheel_radius when cmd≈0 or pure lin_x
             "asset_cfg": SceneEntityCfg("robot", body_names=[".*_foot"]),
         },
     )
     gait_trot = RewTerm(
         func=mdp.GaitReward,
-        weight=0.2,    # suggested: +1.0 ~ +5.0; trot = diagonal pairs synchronized
+        weight=0.2,  # suggested: +1.0 ~ +5.0; trot = diagonal pairs synchronized
         params={
             "std": 0.1,
             "command_name": "base_velocity",
@@ -596,7 +596,7 @@ class RewardsCfg:
     )
     joint_mirror = RewTerm(
         func=mdp.joint_mirror,
-        weight=-1.0,    # suggested: -0.1 ~ -0.5; penalise L/R asymmetry
+        weight=-1.0,  # suggested: -0.1 ~ -0.5; penalise L/R asymmetry
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             # bilateral (L-R) symmetry: FL↔FR, RL↔RR for thigh and calf
@@ -606,6 +606,7 @@ class RewardsCfg:
             ],
         },
     )
+
 
 @configclass
 class TerminationsCfg:
@@ -635,7 +636,7 @@ class CurriculumCfg:
         func=mdp.command_levels_lin_vel,
         params={
             "reward_term_name": "track_lin_vel_xy_exp",
-            "range_multiplier": (0.1, 1.0),   # start at 10%, grow to 100%
+            "range_multiplier": (0.1, 1.0),  # start at 10%, grow to 100%
         },
     )
     command_levels_ang_vel = CurrTerm(
@@ -645,7 +646,6 @@ class CurriculumCfg:
             "range_multiplier": (0.1, 1.0),
         },
     )
-
 
 
 ##
@@ -721,4 +721,3 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
                 reward_attr = getattr(self.rewards, attr)
                 if reward_attr is not None and not callable(reward_attr) and reward_attr.weight == 0:
                     setattr(self.rewards, attr, None)
-

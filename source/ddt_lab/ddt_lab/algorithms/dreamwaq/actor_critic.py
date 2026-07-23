@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -36,15 +36,15 @@ References:
 
 from __future__ import annotations
 
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import warnings
 from torch.distributions import Normal
 
 from ..utils.common_modules import get_activation, mlp_batchnorm_factory, mlp_factory
 from ..utils.normalizer import EmpiricalNormalization
-
 
 # ============================================================================
 # CeNet — Context Estimation Network (VAE)
@@ -88,21 +88,15 @@ class CeNet(nn.Module):
         code_dim = num_vel_dims + num_latent_dims
 
         # shared encoder
-        self.encoder = nn.Sequential(
-            *mlp_batchnorm_factory(activation, cenet_in, None, list(encoder_dims))
-        )
+        self.encoder = nn.Sequential(*mlp_batchnorm_factory(activation, cenet_in, None, list(encoder_dims)))
 
         # explicit head — supervised to predict base_lin_vel
         self.mean_vel = nn.Linear(enc_out, num_vel_dims)
-        self.logvar_vel = nn.Sequential(
-            nn.Linear(enc_out, num_vel_dims), nn.Hardtanh(-5, 5)
-        )
+        self.logvar_vel = nn.Sequential(nn.Linear(enc_out, num_vel_dims), nn.Hardtanh(-5, 5))
 
         # implicit head — regularised with KL
         self.mean_latent = nn.Linear(enc_out, num_latent_dims)
-        self.logvar_latent = nn.Sequential(
-            nn.Linear(enc_out, num_latent_dims), nn.Hardtanh(-5, 5)
-        )
+        self.logvar_latent = nn.Sequential(nn.Linear(enc_out, num_latent_dims), nn.Hardtanh(-5, 5))
 
         # decoder — reconstructs current proprioceptive frame
         dec_layers = mlp_batchnorm_factory(activation, code_dim, None, list(decoder_dims))
@@ -123,8 +117,10 @@ class CeNet(nn.Module):
     def _encode(self, flat: torch.Tensor):
         h = self.encoder(flat)
         return (
-            self.mean_vel(h), self.logvar_vel(h),
-            self.mean_latent(h), self.logvar_latent(h),
+            self.mean_vel(h),
+            self.logvar_vel(h),
+            self.mean_latent(h),
+            self.logvar_latent(h),
         )
 
     @staticmethod
@@ -174,16 +170,14 @@ class CeNet(nn.Module):
         Returns:
             (total_loss, info_dict)
         """
-        current = policy_obs[:, -1, :].detach()   # reconstruction target
+        current = policy_obs[:, -1, :].detach()  # reconstruction target
 
         code, decode, (mean_vel, logvar_vel, mean_lat, logvar_lat) = self.forward(policy_obs)
-        code_vel = code[:, :self.num_vel_dims]
+        code_vel = code[:, : self.num_vel_dims]
 
         vel_loss = F.mse_loss(code_vel, vel_target)
         recon_loss = F.mse_loss(decode, current)
-        kl_loss = -0.5 * torch.mean(
-            torch.sum(1 + logvar_lat - mean_lat.pow(2) - logvar_lat.exp(), dim=-1)
-        )
+        kl_loss = -0.5 * torch.mean(torch.sum(1 + logvar_lat - mean_lat.pow(2) - logvar_lat.exp(), dim=-1))
 
         total = vel_loss + recon_loss + kl_weight * kl_loss
         info = {
@@ -259,18 +253,15 @@ class ActorCriticDreamWaQ(nn.Module):
 
         # ---- Actor MLP -------------------------------------------------------
         actor_input_dim = code_dim + num_prop  # [code | current_obs]
-        actor_layers = mlp_factory(act, actor_input_dim, num_actions,
-                                   list(actor_hidden_dims), last_act=False)
+        actor_layers = mlp_factory(act, actor_input_dim, num_actions, list(actor_hidden_dims), last_act=False)
         self.actor = nn.Sequential(*actor_layers)
 
         # ---- Critic V(s) ----
         critic_input_dim = num_critic_obs
         self.critic_obs_normalizer = EmpiricalNormalization(num_critic_obs)
 
-        critic_layers = mlp_factory(act, critic_input_dim, 1,
-                                    list(critic_hidden_dims), last_act=False)
+        critic_layers = mlp_factory(act, critic_input_dim, 1, list(critic_hidden_dims), last_act=False)
         self.critic = nn.Sequential(*critic_layers)
-
 
         # ---- Action distribution --------------------------------------------
         self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
@@ -282,7 +273,6 @@ class ActorCriticDreamWaQ(nn.Module):
         print(f"[ActorCriticDreamWaQ] critic: {self.critic}")
 
     # ----- std helper --------------------------------------------------------
-
 
     @property
     def action_noise_std(self) -> torch.Tensor:
@@ -338,7 +328,6 @@ class ActorCriticDreamWaQ(nn.Module):
     def evaluate(self, critic_obs: torch.Tensor, **kwargs) -> torch.Tensor:
         return self.critic(self._get_critic_backbone_input(critic_obs))
 
-
     # ----- DreamWaQ VAE loss (same interface as BarlowTwins) ----------------
 
     def imitation_learning_loss(
@@ -350,9 +339,7 @@ class ActorCriticDreamWaQ(nn.Module):
         ``CriticCfg``), which is the explicit velocity supervision target.
         """
         vel_target = critic_obs[:, : self.num_vel_dims]
-        total, _ = self.cenet.compute_vae_loss(
-            policy_obs, vel_target, kl_weight=self.kl_weight
-        )
+        total, _ = self.cenet.compute_vae_loss(policy_obs, vel_target, kl_weight=self.kl_weight)
         return total
 
     # ----- ONNX / JIT export ------------------------------------------------
@@ -368,6 +355,7 @@ class ActorCriticDreamWaQ(nn.Module):
             ``nn_output`` : ``(1, num_actions)``           — deterministic action mean
         """
         import os
+
         os.makedirs(path, exist_ok=True)
 
         wrapper = _InferenceDreamWaQ(self.cenet, self.actor)
@@ -381,10 +369,14 @@ class ActorCriticDreamWaQ(nn.Module):
 
         onnx_path = os.path.join(path, "policy.onnx")
         torch.onnx.export(
-            wrapper, (history,), onnx_path,
+            wrapper,
+            (history,),
+            onnx_path,
             input_names=["nn_input"],
             output_names=["nn_output"],
-            opset_version=13, export_params=True, verbose=False,
+            opset_version=13,
+            export_params=True,
+            verbose=False,
         )
         print(f"[ActorCriticDreamWaQ] saved ONNX        → {onnx_path}")
         return {"jit": os.path.abspath(jit_path), "onnx": os.path.abspath(onnx_path)}

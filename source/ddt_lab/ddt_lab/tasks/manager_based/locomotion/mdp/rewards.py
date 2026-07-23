@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -76,11 +76,13 @@ def track_ang_vel_z_world_exp(
     reward *= torch.clamp(-env.scene["robot"].data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
     return reward
 
+
 def action_rate_l2(env: ManagerBasedRLEnv) -> torch.Tensor:
     """Penalize the rate of change of the actions using L2 squared kernel."""
     reward = torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
     reward *= torch.clamp(-env.scene["robot"].data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
     return reward
+
 
 def joint_power(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Reward joint_power"""
@@ -240,9 +242,11 @@ class GaitReward(ManagerTermBase):
                 fwd_cmd = torch.abs(cmd_raw[:, 0])
                 lat_active = lat_cmd > self.command_threshold
                 pure_fwd = (fwd_cmd > self.command_threshold) & (lat_cmd < self.command_threshold)
-                sign = torch.where(lat_active, torch.ones_like(lat_cmd),
-                       torch.where(pure_fwd, -torch.ones_like(lat_cmd),
-                                   torch.zeros_like(lat_cmd)))
+                sign = torch.where(
+                    lat_active,
+                    torch.ones_like(lat_cmd),
+                    torch.where(pure_fwd, -torch.ones_like(lat_cmd), torch.zeros_like(lat_cmd)),
+                )
                 active = sign  # use directly as multiplier below
                 reward = sign * sync_reward * async_reward
             else:
@@ -722,18 +726,6 @@ def default_joint_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEn
     reward *= torch.clamp(-asset.data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
     return reward
 
-def stand_still(
-    env: ManagerBasedRLEnv,
-    command_name: str,
-    command_threshold: float = 0.1,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-) -> torch.Tensor:
-    """Penalize offsets from the default joint positions when the command is very small."""
-    # Penalize motion when command is nearly zero.
-    reward = mdp.joint_deviation_l1(env, asset_cfg)
-    reward *= torch.norm(env.command_manager.get_command(command_name), dim=1) < command_threshold
-    reward *= torch.clamp(-env.scene["robot"].data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
-    return reward
 
 def power_distribution_var(
     env: ManagerBasedRLEnv,
@@ -790,10 +782,10 @@ def wheel_scrub_penalty(
     # This avoids penalising forward wheel rolling (body-x) which is desirable.
     foot_vel_w = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :]  # (B, K, 3)
     B, K = foot_vel_w.shape[:2]
-    root_quat = asset.data.root_quat_w                                         # (B, 4)
+    root_quat = asset.data.root_quat_w  # (B, 4)
     root_quat_exp = root_quat.unsqueeze(1).expand(-1, K, -1).reshape(B * K, 4)
     foot_vel_body = quat_apply_inverse(root_quat_exp, foot_vel_w.reshape(B * K, 3)).reshape(B, K, 3)
-    foot_lateral_speed = foot_vel_body[:, :, 1].abs()   # body-y = sideways  (B, K)
+    foot_lateral_speed = foot_vel_body[:, :, 1].abs()  # body-y = sideways  (B, K)
 
     # gate: only penalise when vy or wz command is active
     cmd = env.command_manager.get_command(command_name)
@@ -862,8 +854,8 @@ def foot_clearance(
     # terrain reference height — mirrors base_height_l2's sensor approach
     if terrain_sensor_cfg is not None and terrain_sensor_cfg.name in env.scene.sensors:
         terrain_sensor: RayCaster = env.scene[terrain_sensor_cfg.name]
-        ray_hits_z = terrain_sensor.data.ray_hits_w[..., 2]         # (B, n_rays)
-        terrain_z = torch.mean(ray_hits_z, dim=1, keepdim=True)     # (B, 1) broadcast to (B, K)
+        ray_hits_z = terrain_sensor.data.ray_hits_w[..., 2]  # (B, n_rays)
+        terrain_z = torch.mean(ray_hits_z, dim=1, keepdim=True)  # (B, 1) broadcast to (B, K)
     else:
         terrain_z = torch.zeros_like(foot_pos_z)  # flat ground or no sensor
 
@@ -877,11 +869,11 @@ def foot_clearance(
 
     # -- active-state term: exponential kernel on clearance deficit, decayed by air time
     below = torch.clamp(target_height - clearance, min=0.0)
-    height_reward = torch.exp(-below.pow(2) / std ** 2)
+    height_reward = torch.exp(-below.pow(2) / std**2)
     air_time = sensor.data.current_air_time[:, sensor_cfg.body_ids]  # (B, K)
     swing_decay = torch.exp(-(air_time / max_air_time).pow(2))
-    num_contact = in_contact.float().sum(dim=-1, keepdim=True)   # (B, 1)
-    has_other_contact = (num_contact >= min_contact).float()     # (B, 1)
+    num_contact = in_contact.float().sum(dim=-1, keepdim=True)  # (B, 1)
+    has_other_contact = (num_contact >= min_contact).float()  # (B, 1)
     active_term = height_reward * swing_decay * has_other_contact
 
     # -- inactive-state term: penalise any lift above the wheel radius, undecayed
@@ -913,7 +905,7 @@ def wheel_roll_reward(
     foot_vel_x = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, 0].abs()  # (B, K)
 
     cmd = env.command_manager.get_command(command_name)
-    fwd_active = (torch.abs(cmd[:, 0]) > command_threshold).float().unsqueeze(-1)   # (B, 1)
+    fwd_active = (torch.abs(cmd[:, 0]) > command_threshold).float().unsqueeze(-1)  # (B, 1)
 
     return (in_contact.float() * foot_vel_x * fwd_active).sum(dim=-1)
 
@@ -962,7 +954,7 @@ def no_step_forward(
     sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
 
     in_contact = sensor.data.net_forces_w[:, sensor_cfg.body_ids, :].norm(dim=-1) > 1.0  # (B, K)
-    in_air = ~in_contact   # (B, K)
+    in_air = ~in_contact  # (B, K)
 
     cmd = env.command_manager.get_command(command_name)
     fwd_active = torch.abs(cmd[:, 0]) > command_threshold
@@ -971,7 +963,6 @@ def no_step_forward(
 
     # penalise number of airborne feet during pure forward motion
     return in_air.float().sum(dim=-1) * pure_fwd
-
 
 
 def hip_zero_on_contact(
@@ -1018,13 +1009,13 @@ def hip_pos(
     Recommended weight: -5.0 ~ -20.0
     """
     asset: Articulation = env.scene[asset_cfg.name]
-    hip_pos = asset.data.joint_pos[:, asset_cfg.joint_ids]    # (B, K)
+    hip_pos = asset.data.joint_pos[:, asset_cfg.joint_ids]  # (B, K)
 
     cmd = env.command_manager.get_command(command_name)
     lat_quiet = (torch.norm(cmd[:, 1:3], dim=1) < command_threshold).float()  # (B,) 0 or 1
 
     # smooth blend: 1.0 when quiet, loose_ratio when lateral/rot active
-    scale = lat_quiet + loose_ratio * (1.0 - lat_quiet)   # (B,)
+    scale = lat_quiet + loose_ratio * (1.0 - lat_quiet)  # (B,)
 
     excess = torch.clamp(hip_pos.abs() - tolerance, min=0.0)  # (B, K)
     reward = excess.pow(2).sum(dim=-1) * scale
@@ -1044,9 +1035,9 @@ class PositionHoldAtRest(ManagerTermBase):
 
     def __init__(self, cfg: RewTerm, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
-        self._target_xy   = torch.zeros(env.num_envs, 2, device=env.device)
+        self._target_xy = torch.zeros(env.num_envs, 2, device=env.device)
         self._initialized = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-        self._prev_zero   = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self._prev_zero = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
     def __call__(
         self,
@@ -1056,8 +1047,8 @@ class PositionHoldAtRest(ManagerTermBase):
         asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     ) -> torch.Tensor:
         asset: Articulation = env.scene[asset_cfg.name]
-        cmd      = torch.norm(env.command_manager.get_command(command_name), dim=1)
-        cmd_zero = cmd < command_threshold   # (B,) bool
+        cmd = torch.norm(env.command_manager.get_command(command_name), dim=1)
+        cmd_zero = cmd < command_threshold  # (B,) bool
 
         # After episode reset (episode_length_buf == 1), clear saved position
         just_reset = env.episode_length_buf == 1
@@ -1072,7 +1063,7 @@ class PositionHoldAtRest(ManagerTermBase):
         self._prev_zero = cmd_zero.clone()
 
         # Penalise xy drift from saved position while cmd is zero
-        active    = cmd_zero & self._initialized
+        active = cmd_zero & self._initialized
         pos_error = (asset.data.root_pos_w[:, :2] - self._target_xy).norm(dim=-1)
         return pos_error.pow(2) * active.float() * torch.clamp(-asset.data.projected_gravity_b[:, 2], 0.0, 0.7) / 0.7
 
@@ -1095,8 +1086,7 @@ def hip_mirror(
     Recommended weight: -0.5 ~ -2.0
     """
     asset: Articulation = env.scene[left_asset_cfg.name]
-    q_left  = asset.data.joint_pos[:, left_asset_cfg.joint_ids]    # (B, K_L)
-    q_right = asset.data.joint_pos[:, right_asset_cfg.joint_ids]   # (B, K_R)
+    q_left = asset.data.joint_pos[:, left_asset_cfg.joint_ids]  # (B, K_L)
+    q_right = asset.data.joint_pos[:, right_asset_cfg.joint_ids]  # (B, K_R)
     # symmetric ↔ sum ≈ 0
     return (q_left + q_right).pow(2).sum(dim=-1)
-

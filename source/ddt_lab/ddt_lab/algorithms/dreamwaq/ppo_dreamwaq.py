@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -101,12 +101,14 @@ class PPO_DreamWaQ:
     # Storage
     # =========================================================================
 
-    def init_storage(self, num_envs, num_transitions_per_env,
-                     actor_obs_shape, critic_obs_shape, action_shape):
+    def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, action_shape):
         self.storage = RolloutStorageDreamWaQ(
-            num_envs, num_transitions_per_env,
-            actor_obs_shape, critic_obs_shape,
-            action_shape, device=self.device,
+            num_envs,
+            num_transitions_per_env,
+            actor_obs_shape,
+            critic_obs_shape,
+            action_shape,
+            device=self.device,
         )
 
     # =========================================================================
@@ -116,9 +118,7 @@ class PPO_DreamWaQ:
     def act(self, obs, critic_obs):
         self.transition.actions = self.actor_critic.act(obs).detach()
         self.transition.values = self.actor_critic.evaluate(critic_obs).detach()
-        self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(
-            self.transition.actions
-        ).detach()
+        self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
         self.transition.action_sigma = self.actor_critic.action_std.detach()
         self.transition.observations = obs
@@ -130,9 +130,7 @@ class PPO_DreamWaQ:
         self.transition.dones = dones
         if "time_outs" in infos:
             time_outs = infos["time_outs"].unsqueeze(1).to(self.device)
-            self.transition.rewards += self.gamma * torch.squeeze(
-                self.transition.values * time_outs, 1
-            )
+            self.transition.rewards += self.gamma * torch.squeeze(self.transition.values * time_outs, 1)
         self.storage.add_transitions(self.transition)
         self.transition.clear()
         self.actor_critic.reset(dones)
@@ -151,13 +149,11 @@ class PPO_DreamWaQ:
         obs_batch_max = -float("inf")
         obs_batch_min = float("inf")
 
-        generator = self.storage.mini_batch_generator(
-            self.num_mini_batches, self.num_learning_epochs
-        )
+        generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
 
         for (
-            obs_batch,           # (B, T_hist, D) — actor obs WITH full history
-            critic_obs_batch,    # (B, n_critic)
+            obs_batch,  # (B, T_hist, D) — actor obs WITH full history
+            critic_obs_batch,  # (B, n_critic)
             actions_batch,
             target_values_batch,
             advantages_batch,
@@ -165,14 +161,13 @@ class PPO_DreamWaQ:
             old_actions_log_prob_batch,
             old_mu_batch,
             old_sigma_batch,
-            live_batch,          # (B, 1) — 1 for non-terminal, 0 for terminal
+            live_batch,  # (B, 1) — 1 for non-terminal, 0 for terminal
             hid_states_batch,
             masks_batch,
         ) in generator:
 
             # ---- RL forward pass ----
-            self.actor_critic.act(obs_batch, masks=masks_batch,
-                                  hidden_states=hid_states_batch[0])
+            self.actor_critic.act(obs_batch, masks=masks_batch, hidden_states=hid_states_batch[0])
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(actions_batch)
             value_batch = self.actor_critic.evaluate(
                 critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1]
@@ -186,8 +181,7 @@ class PPO_DreamWaQ:
                 with torch.inference_mode():
                     kl = torch.sum(
                         torch.log(sigma_batch / old_sigma_batch + 1e-5)
-                        + (old_sigma_batch.pow(2) + (old_mu_batch - mu_batch).pow(2))
-                        / (2.0 * sigma_batch.pow(2))
+                        + (old_sigma_batch.pow(2) + (old_mu_batch - mu_batch).pow(2)) / (2.0 * sigma_batch.pow(2))
                         - 0.5,
                         dim=-1,
                     ).mean()
@@ -199,9 +193,7 @@ class PPO_DreamWaQ:
                         pg["lr"] = self.learning_rate
 
             # Surrogate
-            ratio = torch.exp(
-                actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch)
-            )
+            ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
             adv = torch.squeeze(advantages_batch)
             surrogate_loss = torch.max(
                 -adv * ratio,
@@ -220,11 +212,7 @@ class PPO_DreamWaQ:
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
 
-            rl_loss = (
-                surrogate_loss
-                + self.value_loss_coef * value_loss
-                - self.entropy_coef * entropy_batch.mean()
-            )
+            rl_loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean()
 
             # ---- RL backward (reference: optimizer.zero_grad; loss.backward; optimizer.step) ----
             self.optimizer.zero_grad()
@@ -240,9 +228,7 @@ class PPO_DreamWaQ:
             vel_target = critic_obs_batch[:, :num_vel].detach()
             decode_target = obs_batch[:, -1, :].detach()
 
-            code, decode, (_, _, mean_lat, logvar_lat) = (
-                self.actor_critic.cenet.forward(obs_batch)
-            )
+            code, decode, (_, _, mean_lat, logvar_lat) = self.actor_critic.cenet.forward(obs_batch)
             code_vel = code[:, :num_vel]
 
             vel_loss = nn.MSELoss()(code_vel * live_batch, vel_target * live_batch)
@@ -257,9 +243,7 @@ class PPO_DreamWaQ:
 
             self.vae_optimizer.zero_grad()
             vae_loss.backward()
-            nn.utils.clip_grad_norm_(
-                self.actor_critic.cenet.parameters(), self.max_grad_norm
-            )
+            nn.utils.clip_grad_norm_(self.actor_critic.cenet.parameters(), self.max_grad_norm)
             self.vae_optimizer.step()
 
             mean_vae_loss += vae_loss.item()

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -46,6 +46,7 @@ def phase(env: ManagerBasedRLEnv, cycle_time: float) -> torch.Tensor:
 # obtained from Isaac Lab's Articulation data without extra PhysX API calls.
 # ---------------------------------------------------------------------------
 
+
 def contact_state(
     env: ManagerBasedRLEnv,
     sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces"),
@@ -60,7 +61,7 @@ def contact_state(
 
     sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     net_forces = sensor.data.net_forces_w[:, sensor_cfg.body_ids, :]  # (B, K, 3)
-    in_contact = (net_forces.norm(dim=-1) > threshold).float()        # (B, K)
+    in_contact = (net_forces.norm(dim=-1) > threshold).float()  # (B, K)
     return in_contact - 0.5
 
 

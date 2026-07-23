@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -23,14 +23,15 @@ class D1FlatNP3OEnvCfg(D1RoughNP3OEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         # ------------------------------Curriculums------------------------------
-        
+
         # self.curriculum.command_levels_lin_vel = None
         # self.curriculum.command_levels_ang_vel = None
-        # reward 
+        # reward
         self.rewards.hip_pos.weight = -20.0
         self.rewards.foot_clearance.weight = 0.5
         self.rewards.gait_trot.weight = 0.2
         self.rewards.joint_mirror = -1.0
+
 
 @configclass
 class D1FlatNP3OEnvCfg_PLAY(D1FlatNP3OEnvCfg):

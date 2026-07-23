@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -11,7 +11,9 @@ Built on top of ``locomotion/agents/dreamwaq_cfg.py`` base; only
 
 from __future__ import annotations
 
-from ddt_lab.tasks.manager_based.locomotion.agents.dreamwaq_cfg import base_dreamwaq_runner_cfg
+from ddt_lab.tasks.manager_based.locomotion.agents.dreamwaq_cfg import (
+    base_dreamwaq_runner_cfg,
+)
 
 
 def d1_flat_dreamwaq_runner_cfg() -> dict:

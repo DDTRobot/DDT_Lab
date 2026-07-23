@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -16,9 +16,9 @@ class EmpiricalNormalization(nn.Module):
         super().__init__()
         self.eps = eps
         self.until = until
-        self.register_buffer('_mean', torch.zeros(shape).unsqueeze(0))
-        self.register_buffer('_var', torch.ones(shape).unsqueeze(0))
-        self.register_buffer('_std', torch.ones(shape).unsqueeze(0))
+        self.register_buffer("_mean", torch.zeros(shape).unsqueeze(0))
+        self.register_buffer("_var", torch.ones(shape).unsqueeze(0))
+        self.register_buffer("_std", torch.ones(shape).unsqueeze(0))
         self.count = 0
 
     @property

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -11,18 +11,19 @@ import os
 
 from isaaclab.app import AppLauncher
 
-parser = argparse.ArgumentParser(description='Play a DreamWaQ checkpoint.')
-parser.add_argument('--task', type=str, required=True, help='Gym task ID.')
-parser.add_argument('--num_envs', type=int, default=50)
-parser.add_argument('--checkpoint', type=str, default=None, help='Absolute path to model_*.pt.')
-parser.add_argument('--load_run', type=str, default='.*')
-parser.add_argument('--load_checkpoint', type=str, default=r'model_.*\.pt')
-parser.add_argument('--export_policy', action='store_true',
-                    help='Export JIT + ONNX and exit without rollout.')
-parser.add_argument('--export_dir', type=str, default=None)
+parser = argparse.ArgumentParser(description="Play a DreamWaQ checkpoint.")
+parser.add_argument("--task", type=str, required=True, help="Gym task ID.")
+parser.add_argument("--num_envs", type=int, default=50)
+parser.add_argument("--checkpoint", type=str, default=None, help="Absolute path to model_*.pt.")
+parser.add_argument("--load_run", type=str, default=".*")
+parser.add_argument("--load_checkpoint", type=str, default=r"model_.*\.pt")
+parser.add_argument("--export_policy", action="store_true", help="Export JIT + ONNX and exit without rollout.")
+parser.add_argument("--export_dir", type=str, default=None)
 parser.add_argument(
-    '--keyboard', action='store_true', default=False,
-    help='Enable keyboard control (W/S=fwd/bwd  A/D=strafe  Q/E=turn  Space=stop).',
+    "--keyboard",
+    action="store_true",
+    default=False,
+    help="Enable keyboard control (W/S=fwd/bwd  A/D=strafe  Q/E=turn  Space=stop).",
 )
 AppLauncher.add_app_launcher_args(parser)
 args_cli, _ = parser.parse_known_args()
@@ -33,22 +34,21 @@ simulation_app = app_launcher.app
 import ddt_lab.tasks  # noqa: F401
 import gymnasium as gym
 import torch
-from isaaclab_tasks.utils import get_checkpoint_path
-
 from ddt_lab.algorithms.dreamwaq import IsaacLabDreamWaQWrapper, OnPolicyRunner
+from isaaclab_tasks.utils import get_checkpoint_path
 
 
 def _resolve_cfg(entry_point: str) -> dict:
-    module_name, attr = entry_point.split(':')
+    module_name, attr = entry_point.split(":")
     obj = getattr(importlib.import_module(module_name), attr)
     return obj() if callable(obj) else obj
 
 
 def main():
     spec = gym.spec(args_cli.task)
-    runner_cfg = _resolve_cfg(spec.kwargs['dreamwaq_cfg_entry_point'])
+    runner_cfg = _resolve_cfg(spec.kwargs["dreamwaq_cfg_entry_point"])
 
-    env_cfg_entry = spec.kwargs['env_cfg_entry_point']
+    env_cfg_entry = spec.kwargs["env_cfg_entry_point"]
     env_cfg = env_cfg_entry() if callable(env_cfg_entry) else env_cfg_entry
     env_cfg.scene.num_envs = args_cli.num_envs
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
@@ -59,36 +59,34 @@ def main():
         env_cfg.commands.base_velocity.heading_command = False
 
     env = gym.make(args_cli.task, cfg=env_cfg)
-    env = IsaacLabDreamWaQWrapper(env, device=args_cli.device or 'cuda:0')
+    env = IsaacLabDreamWaQWrapper(env, device=args_cli.device or "cuda:0")
 
-    runner = OnPolicyRunner(
-        env, runner_cfg, log_dir=None, device=args_cli.device or 'cuda:0'
-    )
+    runner = OnPolicyRunner(env, runner_cfg, log_dir=None, device=args_cli.device or "cuda:0")
 
-    log_root = os.path.abspath(
-        os.path.join('logs', 'dreamwaq', runner_cfg['runner']['experiment_name'])
-    )
+    log_root = os.path.abspath(os.path.join("logs", "dreamwaq", runner_cfg["runner"]["experiment_name"]))
     ckpt_key = args_cli.checkpoint if args_cli.checkpoint is not None else args_cli.load_checkpoint
     ckpt = get_checkpoint_path(log_root, args_cli.load_run, ckpt_key)
-    print(f'[INFO] loading checkpoint: {ckpt}')
+    print(f"[INFO] loading checkpoint: {ckpt}")
     runner.load(ckpt, load_optimizer=False)
 
-    export_dir = args_cli.export_dir or os.path.join(os.path.dirname(ckpt), 'exported')
-    runner.alg.actor_critic.save_torch_jit_policy(export_dir, args_cli.device or 'cuda:0')
+    export_dir = args_cli.export_dir or os.path.join(os.path.dirname(ckpt), "exported")
+    runner.alg.actor_critic.save_torch_jit_policy(export_dir, args_cli.device or "cuda:0")
 
     if args_cli.export_policy:
         env.env.close()
         return
 
-    policy = runner.get_inference_policy(args_cli.device or 'cuda:0')
+    policy = runner.get_inference_policy(args_cli.device or "cuda:0")
     obs = env.get_observations()
 
     keyboard = None
     if args_cli.keyboard:
         import sys
+
         sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from keyboard_vel_controller import VelocityKeyboardController
-        keyboard = VelocityKeyboardController(env_cfg, sim_device=args_cli.device or 'cuda:0')
+
+        keyboard = VelocityKeyboardController(env_cfg, sim_device=args_cli.device or "cuda:0")
 
     while simulation_app.is_running():
         if keyboard is not None:
@@ -100,6 +98,6 @@ def main():
     env.env.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
     simulation_app.close()

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -29,8 +29,8 @@ class RolloutStorageDreamWaQ:
 
     class Transition:
         def __init__(self):
-            self.observations = None          # actor obs  (B, T_hist, D)
-            self.critic_observations = None   # critic obs (B, n_critic)
+            self.observations = None  # actor obs  (B, T_hist, D)
+            self.critic_observations = None  # critic obs (B, n_critic)
             self.actions = None
             self.rewards = None
             self.dones = None
@@ -47,8 +47,8 @@ class RolloutStorageDreamWaQ:
         self,
         num_envs: int,
         num_transitions_per_env: int,
-        actor_obs_shape: list,    # e.g. [history_len, n_proprio]
-        critic_obs_shape: list,   # e.g. [n_critic]
+        actor_obs_shape: list,  # e.g. [history_len, n_proprio]
+        critic_obs_shape: list,  # e.g. [n_critic]
         actions_shape: list,
         device: str = "cpu",
     ):
@@ -57,17 +57,11 @@ class RolloutStorageDreamWaQ:
         self.num_envs = num_envs
 
         # Core tensors
-        self.observations = torch.zeros(
-            num_transitions_per_env, num_envs, *actor_obs_shape, device=device
-        )
-        self.privileged_observations = torch.zeros(
-            num_transitions_per_env, num_envs, *critic_obs_shape, device=device
-        )
+        self.observations = torch.zeros(num_transitions_per_env, num_envs, *actor_obs_shape, device=device)
+        self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *critic_obs_shape, device=device)
         self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=device)
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=device).byte()
-        self.actions = torch.zeros(
-            num_transitions_per_env, num_envs, *actions_shape, device=device
-        )
+        self.actions = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=device)
 
         # PPO fields
         self.values = torch.zeros(num_transitions_per_env, num_envs, 1, device=device)
@@ -103,12 +97,10 @@ class RolloutStorageDreamWaQ:
         hid_c = hidden_states[1] if isinstance(hidden_states[1], tuple) else (hidden_states[1],)
         if self.saved_hidden_states_a is None:
             self.saved_hidden_states_a = [
-                torch.zeros(self.observations.shape[0], *hid_a[i].shape, device=self.device)
-                for i in range(len(hid_a))
+                torch.zeros(self.observations.shape[0], *hid_a[i].shape, device=self.device) for i in range(len(hid_a))
             ]
             self.saved_hidden_states_c = [
-                torch.zeros(self.observations.shape[0], *hid_c[i].shape, device=self.device)
-                for i in range(len(hid_c))
+                torch.zeros(self.observations.shape[0], *hid_c[i].shape, device=self.device) for i in range(len(hid_c))
             ]
         for i in range(len(hid_a)):
             self.saved_hidden_states_a[i][self.step].copy_(hid_a[i])
@@ -120,10 +112,7 @@ class RolloutStorageDreamWaQ:
     def compute_returns(self, last_values: torch.Tensor, gamma: float, lam: float):
         advantage = 0
         for step in reversed(range(self.num_transitions_per_env)):
-            next_values = (
-                last_values if step == self.num_transitions_per_env - 1
-                else self.values[step + 1]
-            )
+            next_values = last_values if step == self.num_transitions_per_env - 1 else self.values[step + 1]
             not_terminal = 1.0 - self.dones[step].float()
             delta = self.rewards[step] + not_terminal * gamma * next_values - self.values[step]
             advantage = delta + not_terminal * gamma * lam * advantage
@@ -151,8 +140,7 @@ class RolloutStorageDreamWaQ:
         """
         batch_size = self.num_envs * self.num_transitions_per_env
         mini_batch_size = batch_size // num_mini_batches
-        indices = torch.randperm(num_mini_batches * mini_batch_size,
-                                 requires_grad=False, device=self.device)
+        indices = torch.randperm(num_mini_batches * mini_batch_size, requires_grad=False, device=self.device)
 
         obs = self.observations.flatten(0, 1)
         critic_obs = self.privileged_observations.flatten(0, 1)
@@ -179,7 +167,7 @@ class RolloutStorageDreamWaQ:
                     log_prob[idx],
                     old_mu[idx],
                     old_sigma[idx],
-                    live,           # live_batch: 1 for non-terminal, 0 for terminal
-                    (None, None),   # hid_states (no RNN)
-                    None,           # masks
+                    live,  # live_batch: 1 for non-terminal, 0 for terminal
+                    (None, None),  # hid_states (no RNN)
+                    None,  # masks
                 )
