@@ -20,6 +20,10 @@ parser.add_argument('--load_checkpoint', type=str, default=r'model_.*\.pt')
 parser.add_argument('--export_policy', action='store_true',
                     help='Export JIT + ONNX and exit without rollout.')
 parser.add_argument('--export_dir', type=str, default=None)
+parser.add_argument(
+    '--keyboard', action='store_true', default=False,
+    help='Enable keyboard control (W/S=fwd/bwd  A/D=strafe  Q/E=turn  Space=stop).',
+)
 AppLauncher.add_app_launcher_args(parser)
 args_cli, _ = parser.parse_known_args()
 
@@ -49,6 +53,11 @@ def main():
     env_cfg.scene.num_envs = args_cli.num_envs
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
 
+    if args_cli.keyboard:
+        env_cfg.scene.num_envs = 1
+        env_cfg.terminations.time_out = None
+        env_cfg.commands.base_velocity.heading_command = False
+
     env = gym.make(args_cli.task, cfg=env_cfg)
     env = IsaacLabDreamWaQWrapper(env, device=args_cli.device or 'cuda:0')
 
@@ -56,13 +65,11 @@ def main():
         env, runner_cfg, log_dir=None, device=args_cli.device or 'cuda:0'
     )
 
-    if args_cli.checkpoint is not None:
-        ckpt = args_cli.checkpoint
-    else:
-        log_root = os.path.abspath(
-            os.path.join('logs', 'dreamwaq', runner_cfg['runner']['experiment_name'])
-        )
-        ckpt = get_checkpoint_path(log_root, args_cli.load_run, args_cli.load_checkpoint)
+    log_root = os.path.abspath(
+        os.path.join('logs', 'dreamwaq', runner_cfg['runner']['experiment_name'])
+    )
+    ckpt_key = args_cli.checkpoint if args_cli.checkpoint is not None else args_cli.load_checkpoint
+    ckpt = get_checkpoint_path(log_root, args_cli.load_run, ckpt_key)
     print(f'[INFO] loading checkpoint: {ckpt}')
     runner.load(ckpt, load_optimizer=False)
 
@@ -75,10 +82,21 @@ def main():
 
     policy = runner.get_inference_policy(args_cli.device or 'cuda:0')
     obs = env.get_observations()
+
+    keyboard = None
+    if args_cli.keyboard:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from keyboard_vel_controller import VelocityKeyboardController
+        keyboard = VelocityKeyboardController(env_cfg, sim_device=args_cli.device or 'cuda:0')
+
     while simulation_app.is_running():
+        if keyboard is not None:
+            keyboard.apply_to_env(env)
         with torch.inference_mode():
             actions = policy(obs)
             obs, _, _, _, _ = env.step(actions)
+
     env.env.close()
 
 

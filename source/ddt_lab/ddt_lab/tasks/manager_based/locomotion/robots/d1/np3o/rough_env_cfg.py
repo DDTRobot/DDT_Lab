@@ -113,7 +113,14 @@ class D1RoughNP3OEnvCfg(D1RoughEnvCfg):
         super().__post_init__()
         self.observations.policy.history_length = 10
         self.observations.policy.flatten_history_dim = False
-
+        # ---- rewards ----
+        self.rewards.hip_pos.weight = -0.0
+        self.rewards.foot_clearance.weight = 0.0
+        self.rewards.gait_trot.weight = 0.0
+        self.rewards.joint_mirror.weight = -0.0
+        # ------------------------------Curriculums------------------------------
+        self.curriculum.command_levels_lin_vel = None
+        self.curriculum.command_levels_ang_vel = None
 
 @configclass
 class D1RoughNP3OEnvCfg_PLAY(D1RoughNP3OEnvCfg):
@@ -129,3 +136,6 @@ class D1RoughNP3OEnvCfg_PLAY(D1RoughNP3OEnvCfg):
         self.observations.policy.enable_corruption = False
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        # ------------------------------Curriculums------------------------------
+        self.curriculum.command_levels_lin_vel = None
+        self.curriculum.command_levels_ang_vel = None

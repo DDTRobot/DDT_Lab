@@ -16,13 +16,13 @@ from ddt_lab.tasks.manager_based.locomotion.agents.dreamwaq_cfg import base_drea
 
 def d1_flat_dreamwaq_runner_cfg() -> dict:
     cfg = base_dreamwaq_runner_cfg()
-    cfg["runner"]["experiment_name"] = "d1_flat_dreamwaq"
+    cfg["runner"]["experiment_name"] = "d1_flat"
     cfg["runner"]["max_iterations"] = 10000
     return cfg
 
 
 def d1_rough_dreamwaq_runner_cfg() -> dict:
     cfg = base_dreamwaq_runner_cfg()
-    cfg["runner"]["experiment_name"] = "d1_rough_dreamwaq"
+    cfg["runner"]["experiment_name"] = "d1_rough"
     cfg["runner"]["max_iterations"] = 20000
     return cfg
