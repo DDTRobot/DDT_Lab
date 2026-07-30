@@ -131,7 +131,7 @@ DDT_D1H_CFG = ArticulationCfg(
             velocity_limit=20.0,
             stiffness=60.0,
             damping=2.0,
-            friction=0.589,
+            friction=0.15,
             armature=0.0535,
             min_delay=0,  # physics time steps (min: 2.0*0=0.0ms)
             max_delay=4,  # physics time steps (max: 2.0*4=8.0ms)
@@ -142,7 +142,7 @@ DDT_D1H_CFG = ArticulationCfg(
             velocity_limit_sim=50.0,
             stiffness=0.0,
             damping=0.5,
-            friction=0.0,
+            friction=0.02,
         ),
     },
 )
@@ -192,7 +192,7 @@ DDT_D1_CFG = ArticulationCfg(
             velocity_limit=20.0,
             stiffness=60.0,
             damping=2.0,
-            friction=0.589,
+            friction=0.15,
             armature=0.0535,
             min_delay=0,  # physics time steps (min: 2.0*0=0.0ms)
             max_delay=4,  # physics time steps (max: 2.0*4=8.0ms)
@@ -203,7 +203,7 @@ DDT_D1_CFG = ArticulationCfg(
             velocity_limit_sim=50.0,
             stiffness=0.0,
             damping=0.5,
-            friction=0.0,
+            friction=0.02,
         ),
     },
 )
