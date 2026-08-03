@@ -68,14 +68,14 @@ class SceneCfg(InteractiveSceneCfg):
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
     )
-    # height_scanner_base = RayCasterCfg(
-    #     prim_path="{ENV_REGEX_NS}/Robot/base_link",
-    #     offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-    #     ray_alignment="yaw",
-    #     pattern_cfg=patterns.GridPatternCfg(resolution=0.05, size=(0.1, 0.1)),
-    #     debug_vis=False,
-    #     mesh_prim_paths=["/World/ground"],
-    # )
+    height_scanner_base = RayCasterCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/base_link",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
+        ray_alignment="yaw",
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.05, size=(0.1, 0.1)),
+        debug_vis=False,
+        mesh_prim_paths=["/World/ground"],
+    )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     # lights
     light = AssetBaseCfg(
@@ -464,7 +464,7 @@ class RewardsCfg:
         weight=-10.0,
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
-            "sensor_cfg": SceneEntityCfg("height_scanner"),
+            "sensor_cfg": SceneEntityCfg("height_scanner_base"),
             "target_height": 0.50,
         },
     )
@@ -511,7 +511,7 @@ class RewardsCfg:
     )
 
     # -- action penalties
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.05)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
 
     # -- Contact sensor
     undesired_contacts = RewTerm(
@@ -521,10 +521,10 @@ class RewardsCfg:
     )
     contact_forces = RewTerm(
         func=mdp.contact_forces,
-        weight=-0.0e-4,
+        weight=-1.5e-4,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
-            "threshold": 400.0,
+            "threshold": 200.0,
         },
     )
 
@@ -542,7 +542,7 @@ class RewardsCfg:
     )
     hip_pos = RewTerm(
         func=mdp.hip_pos,
-        weight=-20.0,
+        weight=-0.0,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_joint"]),
             "command_name": "base_velocity",
@@ -551,61 +551,7 @@ class RewardsCfg:
             "loose_ratio": 0.4,  # 20% penalty during lin_y/ang_z stepping; 100% when standing/lin_x
         },
     )
-    # -- wheel-legged gait shaping (core trio for lin_x rolling / lin_y+ang_z stepping)
-    wheel_scrub_penalty = RewTerm(
-        func=mdp.wheel_scrub_penalty,
-        weight=-0.0,  # penalise lateral foot contact during lin_y/ang_z
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
-            "command_name": "base_velocity",
-            "command_threshold": 0.10,
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_foot"]),
-        },
-    )
-    foot_clearance = RewTerm(
-        func=mdp.foot_clearance,
-        weight=0.5,  # reward swing-foot lift height during lin_y / ang_z; penalise it otherwise
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
-            "command_name": "base_velocity",
-            "target_height": 0.02,
-            "std": 0.04,
-            "wheel_radius": 0.1,
-            "command_threshold": 0.10,  # match hip_pos/wheel_scrub_penalty gating
-            "max_air_time": 0.3,  # decay reward if a foot hovers past ~1 swing phase
-            "min_contact": 2,  # never let more than 2 feet leave the ground at once
-            "lift_penalty_scale": 200.0,  # penalise clearance above wheel_radius when cmd≈0 or pure lin_x
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_foot"]),
-        },
-    )
-    gait_trot = RewTerm(
-        func=mdp.GaitReward,
-        weight=0.2,  # suggested: +1.0 ~ +5.0; trot = diagonal pairs synchronized
-        params={
-            "std": 0.1,
-            "command_name": "base_velocity",
-            "max_err": 0.5,
-            "velocity_threshold": 0.2,
-            "command_threshold": 0.1,
-            "lateral_only": True,
-            "penalize_forward": True,  # penalise trot during pure lin_x, reward during lin_y/ang_z
-            "synced_feet_pair_names": [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]],
-            "asset_cfg": SceneEntityCfg("robot"),
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
-        },
-    )
-    joint_mirror = RewTerm(
-        func=mdp.joint_mirror,
-        weight=-1.0,  # suggested: -0.1 ~ -0.5; penalise L/R asymmetry
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            # bilateral (L-R) symmetry: FL↔FR, RL↔RR for thigh and calf
-            "mirror_joints": [
-                ["FR_(thigh|calf).*", "RL_(thigh|calf).*"],
-                ["FL_(thigh|calf).*", "RR_(thigh|calf).*"],
-            ],
-        },
-    )
+
 
 
 @configclass
@@ -712,7 +658,6 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
         self.observations.policy.joint_pos.params["asset_cfg"].joint_names = self.joint_names
         self.observations.policy.joint_vel.params["asset_cfg"].joint_names = self.joint_names
 
-        self.disable_zero_weight_rewards()
 
     def disable_zero_weight_rewards(self):
         """If the weight of rewards is 0, set rewards to None"""

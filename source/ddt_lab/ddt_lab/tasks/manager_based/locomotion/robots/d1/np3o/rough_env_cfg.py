@@ -7,10 +7,11 @@ import ddt_lab.tasks.manager_based.locomotion.mdp as mdp
 from ddt_lab.managers import CostTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
-from ..base_env_cfg import D1RoughEnvCfg, ObservationsCfg
+from ..base_env_cfg import D1RoughEnvCfg, ObservationsCfg, RewardsCfg
 
 
 @configclass
@@ -87,19 +88,77 @@ class PrivilegedObservationsCfg(ObservationsCfg):
     priv: PrivCfg = PrivCfg()
     scanner: ScannerCfg | None = ScannerCfg()
 
+@configclass
+class RoughRewardsCfg(RewardsCfg):
+    # -- wheel-legged gait shaping (core trio for lin_x rolling / lin_y+ang_z stepping)
+    wheel_scrub_penalty = RewTerm(
+        func=mdp.wheel_scrub_penalty,
+        weight=-0.0,  # penalise lateral foot contact during lin_y/ang_z
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
+            "command_name": "base_velocity",
+            "command_threshold": 0.10,
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_foot"]),
+        },
+    )
+    foot_clearance = RewTerm(
+        func=mdp.foot_clearance,
+        weight=0.0,  # reward swing-foot lift height during lin_y / ang_z; penalise it otherwise
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
+            "command_name": "base_velocity",
+            "target_height": 0.02,
+            "std": 0.04,
+            "wheel_radius": 0.1,
+            "command_threshold": 0.10,  # match hip_pos/wheel_scrub_penalty gating
+            "max_air_time": 0.3,  # decay reward if a foot hovers past ~1 swing phase
+            "min_contact": 2,  # never let more than 2 feet leave the ground at once
+            "lift_penalty_scale": 200.0,  # penalise clearance above wheel_radius when cmd≈0 or pure lin_x
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_foot"]),
+        },
+    )
+    gait_trot = RewTerm(
+        func=mdp.GaitReward,
+        weight=0.0,  # suggested: +1.0 ~ +5.0; trot = diagonal pairs synchronized
+        params={
+            "std": 0.1,
+            "command_name": "base_velocity",
+            "max_err": 0.5,
+            "velocity_threshold": 0.2,
+            "command_threshold": 0.1,
+            "lateral_only": True,
+            "penalize_forward": True,  # penalise trot during pure lin_x, reward during lin_y/ang_z
+            "synced_feet_pair_names": [["FL_foot", "RR_foot"], ["FR_foot", "RL_foot"]],
+            "asset_cfg": SceneEntityCfg("robot"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
+        },
+    )
+    joint_mirror = RewTerm(
+        func=mdp.joint_mirror,
+        weight=-0.0,  # suggested: -0.1 ~ -0.5; penalise L/R asymmetry
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            # bilateral (L-R) symmetry: FL↔FR, RL↔RR for thigh and calf
+            "mirror_joints": [
+                ["FR_(thigh|calf).*", "RL_(thigh|calf).*"],
+                ["FL_(thigh|calf).*", "RR_(thigh|calf).*"],
+            ],
+        },
+    )
+
 
 @configclass
 class CostsCfg:
     joint_pos_limit = CostTermCfg(
         func=mdp.joint_pos_limit,
-        scale=1.0,
+        scale=10.0,
         d_value=0.0,
         k_value=0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
     joint_vel_limit = CostTermCfg(
         func=mdp.joint_vel_limit,
-        scale=1.0,
+        scale=5.0,
         d_value=0.0,
         k_value=0.01,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
@@ -116,6 +175,7 @@ class CostsCfg:
 @configclass
 class D1RoughNP3OEnvCfg(D1RoughEnvCfg):
     observations: PrivilegedObservationsCfg = PrivilegedObservationsCfg()
+    rewards: RoughRewardsCfg = RoughRewardsCfg()
     costs: CostsCfg = CostsCfg()
 
     def __post_init__(self):
@@ -123,13 +183,18 @@ class D1RoughNP3OEnvCfg(D1RoughEnvCfg):
         self.observations.policy.history_length = 10
         self.observations.policy.flatten_history_dim = False
         # ---- rewards ----
-        self.rewards.hip_pos.weight = -0.0
+        self.rewards.flat_orientation_l2.weight = 0.0
+        self.rewards.hip_pos.weight = -10.0
         self.rewards.foot_clearance.weight = 0.0
         self.rewards.gait_trot.weight = 0.0
-        self.rewards.joint_mirror.weight = -0.0
+        self.rewards.joint_mirror.weight = -0.05
+        self.rewards.wheel_scrub_penalty.weight = -3.0
+        self.rewards.action_rate_l2.weight = -0.01
         # ------------------------------Curriculums------------------------------
         self.curriculum.command_levels_lin_vel = None
         self.curriculum.command_levels_ang_vel = None
+        if self.__class__.__name__ == "D1RoughNP3OEnvCfg":
+            self.disable_zero_weight_rewards()
 
 
 @configclass
@@ -149,3 +214,5 @@ class D1RoughNP3OEnvCfg_PLAY(D1RoughNP3OEnvCfg):
         # ------------------------------Curriculums------------------------------
         self.curriculum.command_levels_lin_vel = None
         self.curriculum.command_levels_ang_vel = None
+        if self.__class__.__name__ == "D1RoughNP3OEnvCfg_PLAY":
+            self.disable_zero_weight_rewards()

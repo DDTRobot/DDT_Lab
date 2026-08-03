@@ -17,7 +17,8 @@ class D1FlatDreamWaQEnvCfg(D1RoughDreamWaQEnvCfg):
         self.scene.height_scanner = None
         self.observations.scanner = None
         self.curriculum.terrain_levels = None
-
+        if self.__class__.__name__ == "D1FlatDreamWaQEnvCfg":
+            self.disable_zero_weight_rewards()
 
 @configclass
 class D1FlatDreamWaQEnvCfg_PLAY(D1FlatDreamWaQEnvCfg):

@@ -95,7 +95,8 @@ class D1RoughDreamWaQEnvCfg(D1RoughEnvCfg):
         super().__post_init__()
         self.observations.policy.history_length = 5
         self.observations.policy.flatten_history_dim = False
-
+        if self.__class__.__name__ == "D1RoughDreamWaQEnvCfg":
+            self.disable_zero_weight_rewards()
 
 @configclass
 class D1RoughDreamWaQEnvCfg_PLAY(D1RoughDreamWaQEnvCfg):

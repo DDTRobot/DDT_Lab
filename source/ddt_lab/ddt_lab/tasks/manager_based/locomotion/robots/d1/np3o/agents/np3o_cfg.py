@@ -16,6 +16,7 @@ from __future__ import annotations
 from ddt_lab.tasks.manager_based.locomotion.agents.np3o_cfg import base_np3o_runner_cfg
 
 
+
 def d1_rough_np3o_runner_cfg() -> dict:
     """D1 rough-ground NP3O config — same overrides as flat, longer run."""
     cfg = base_np3o_runner_cfg()
@@ -29,4 +30,11 @@ def d1_flat_np3o_runner_cfg() -> dict:
     cfg = d1_rough_np3o_runner_cfg()
     cfg["runner"]["experiment_name"] = "d1_flat"
     cfg["runner"]["max_iterations"] = 10000
+    return cfg
+
+def d1_platform_np3o_runner_cfg() -> dict:
+    """D1 flat-ground NP3O config — matches ``D1FlatCfgPPO``."""
+    cfg = d1_rough_np3o_runner_cfg()
+    cfg["runner"]["experiment_name"] = "d1_platform"
+    cfg["runner"]["max_iterations"] = 20000
     return cfg

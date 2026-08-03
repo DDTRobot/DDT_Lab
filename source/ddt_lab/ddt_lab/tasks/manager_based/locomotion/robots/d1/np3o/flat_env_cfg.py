@@ -30,8 +30,9 @@ class D1FlatNP3OEnvCfg(D1RoughNP3OEnvCfg):
         self.rewards.hip_pos.weight = -20.0
         self.rewards.foot_clearance.weight = 0.5
         self.rewards.gait_trot.weight = 0.2
-        self.rewards.joint_mirror = -1.0
-
+        self.rewards.joint_mirror.weight = -1.0
+        if self.__class__.__name__ == "D1FlatNP3OEnvCfg":
+            self.disable_zero_weight_rewards()
 
 @configclass
 class D1FlatNP3OEnvCfg_PLAY(D1FlatNP3OEnvCfg):
@@ -72,3 +73,5 @@ class D1FlatNP3OEnvCfg_PLAY(D1FlatNP3OEnvCfg):
         # ------------------------------Curriculums------------------------------
         self.curriculum.command_levels_lin_vel = None
         self.curriculum.command_levels_ang_vel = None
+        if self.__class__.__name__ == "D1FlatNP3OEnvCfg_PLAY":
+            self.disable_zero_weight_rewards()

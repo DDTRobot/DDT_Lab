@@ -183,7 +183,7 @@ DDT_D1_CFG = ArticulationCfg(
         },
         joint_vel={".*": 0.0},
     ),
-    soft_joint_pos_limit_factor=0.9,
+    soft_joint_pos_limit_factor=0.95,
     actuators={
         "legs": DelayedPDActuatorCfg(
             joint_names_expr=[".*(hip|thigh|calf)_joint"],
