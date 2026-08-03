@@ -30,3 +30,10 @@ def d1_flat_np3o_runner_cfg() -> dict:
     cfg["runner"]["experiment_name"] = "d1_flat"
     cfg["runner"]["max_iterations"] = 10000
     return cfg
+
+
+def d1_height_flat_np3o_runner_cfg() -> dict:
+    """D1 flat-ground NP3O config with a commanded base height."""
+    cfg = d1_flat_np3o_runner_cfg()
+    cfg["runner"]["experiment_name"] = "d1_height_flat"
+    return cfg
