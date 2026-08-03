@@ -50,6 +50,21 @@ def track_ang_vel_z_exp(
     return reward
 
 
+def track_base_height_exp(
+    env: ManagerBasedRLEnv,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Reward tracking of a commanded base height above the flat terrain."""
+    asset: RigidObject = env.scene[asset_cfg.name]
+    target = env.command_manager.get_command(command_name)[:, 0]
+    height = asset.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
+    reward = torch.exp(-torch.square(target - height) / std**2)
+    reward *= torch.clamp(-asset.data.projected_gravity_b[:, 2], 0, 0.7) / 0.7
+    return reward
+
+
 def track_lin_vel_xy_yaw_frame_exp(
     env, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
