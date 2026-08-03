@@ -10,15 +10,14 @@ Kept separate from ``rough_env_cfg.py`` so the stock
 task ID in ``robots/d1/__init__.py``.
 """
 import math
-# import dataclasses
 
-from isaaclab.utils import configclass
-
-from ddt_lab.assets.terrains.platform import PLATFORM_TERRAINS_CFG
 import ddt_lab.tasks.manager_based.locomotion.mdp as mdp
+from ddt_lab.assets.terrains.platform import PLATFORM_TERRAINS_CFG
+from isaaclab.utils import configclass
 
 from ..base_env_cfg import D1RoughEnvCfg
 
+# import dataclasses
 
 
 @configclass
@@ -37,6 +36,7 @@ class CommandsCfg:
             lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
+
 
 @configclass
 class D1PlatformNP3OEnvCfg(D1RoughEnvCfg):
@@ -62,6 +62,7 @@ class D1PlatformNP3OEnvCfg(D1RoughEnvCfg):
         if self.__class__.__name__ == "D1PlatformNP3OEnvCfg":
             self.disable_zero_weight_rewards()
 
+
 @configclass
 class D1PlatformNP3OEnvCfg_PLAY(D1PlatformNP3OEnvCfg):
     # Set to one of PLATFORM_TERRAINS_CFG.sub_terrains' keys (e.g. "pits", "rails", "boxes",
@@ -77,7 +78,9 @@ class D1PlatformNP3OEnvCfg_PLAY(D1PlatformNP3OEnvCfg):
             self.scene.terrain.terrain_generator.num_rows = 5
             self.scene.terrain.terrain_generator.num_cols = 5
             self.scene.terrain.terrain_generator.curriculum = False
-            self.scene.terrain.terrain_generator.sub_terrains = {"pits": self.scene.terrain.terrain_generator.sub_terrains["pits"].replace(proportion=1.0)}
+            self.scene.terrain.terrain_generator.sub_terrains = {
+                "pits": self.scene.terrain.terrain_generator.sub_terrains["pits"].replace(proportion=1.0)
+            }
         self.observations.policy.enable_corruption = False
         self.events.base_external_force_torque = None
         self.events.push_robot = None

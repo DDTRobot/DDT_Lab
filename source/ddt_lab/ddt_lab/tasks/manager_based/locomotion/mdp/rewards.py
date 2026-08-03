@@ -1098,10 +1098,7 @@ def hip_mirror(
 
 
 def keep_upright_only_reward(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    upright_gz_threshold: float,
-    time_coeff: float
+    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, upright_gz_threshold: float, time_coeff: float
 ) -> torch.Tensor:
     asset: RigidObject = env.scene[asset_cfg.name]
     g_z = asset.data.projected_gravity_b[:, 2]
@@ -1112,9 +1109,7 @@ def keep_upright_only_reward(
     fully_upright_mask = (g_z <= upright_gz_threshold).float()
 
     env.upright_timer_buf = torch.where(
-        fully_upright_mask > 0.5,
-        env.upright_timer_buf + env.step_dt,
-        torch.zeros_like(env.upright_timer_buf)
+        fully_upright_mask > 0.5, env.upright_timer_buf + env.step_dt, torch.zeros_like(env.upright_timer_buf)
     )
 
     base_score = fully_upright_mask * 1.0
@@ -1129,7 +1124,7 @@ def reward_feet_air_time(
     sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=[".*_foot"]),
     command_name: str = "base_velocity",
     min_air_t: float = 0.5,
-    force_threshold: float = 1.0
+    force_threshold: float = 1.0,
 ) -> torch.Tensor:
     contact_sensor = env.scene[sensor_cfg.name]
     contact = contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > force_threshold
@@ -1148,7 +1143,7 @@ def reward_feet_air_time(
 def reward_collision_head(
     env: ManagerBasedRLEnv,
     sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=["base_link"]),
-    threshold: float = 10.0
+    threshold: float = 10.0,
 ) -> torch.Tensor:
     contact_sensor = env.scene[sensor_cfg.name]
     forces = torch.norm(contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, :], dim=-1)
@@ -1156,18 +1151,13 @@ def reward_collision_head(
 
 
 def reward_dof_thigh_vel(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", joint_names=[".*_thigh_joint"])
+    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", joint_names=[".*_thigh_joint"])
 ) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     return torch.sum(torch.square(asset.data.joint_vel[:, asset_cfg.joint_ids]), dim=-1)
 
 
-def reward_body_pos_to_feet_x(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    sigma: float
-) -> torch.Tensor:
+def reward_body_pos_to_feet_x(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, sigma: float) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     foot_body_names = ["FL_foot", "FR_foot"]
     foot_ids = [asset.body_names.index(name) for name in foot_body_names]
@@ -1187,11 +1177,7 @@ def reward_body_pos_to_feet_x(
     return reward
 
 
-def reward_body_feet_distance_x(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    sigma: float
-) -> torch.Tensor:
+def reward_body_feet_distance_x(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, sigma: float) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     foot_body_names = ["FL_foot", "FR_foot"]
     foot_ids = [asset.body_names.index(name) for name in foot_body_names]
@@ -1208,10 +1194,7 @@ def reward_body_feet_distance_x(
 
 
 def reward_body_feet_distance_y(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    sigma: float,
-    desired_feet_distance: float
+    env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, sigma: float, desired_feet_distance: float
 ) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     foot_body_names = ["FL_foot", "FR_foot"]
@@ -1229,11 +1212,7 @@ def reward_body_feet_distance_y(
     return reward
 
 
-def reward_body_symmetry_y(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    sigma: float
-) -> torch.Tensor:
+def reward_body_symmetry_y(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, sigma: float) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     foot_body_names = ["FL_foot", "FR_foot"]
     foot_ids = [asset.body_names.index(name) for name in foot_body_names]
@@ -1254,11 +1233,7 @@ def reward_body_symmetry_y(
     return reward
 
 
-def reward_body_symmetry_z(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg,
-    sigma: float
-) -> torch.Tensor:
+def reward_body_symmetry_z(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, sigma: float) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     foot_body_names = ["FL_foot", "FR_foot"]
     foot_ids = [asset.body_names.index(name) for name in foot_body_names]

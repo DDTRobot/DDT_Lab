@@ -20,6 +20,7 @@ class D1FlatDreamWaQEnvCfg(D1RoughDreamWaQEnvCfg):
         if self.__class__.__name__ == "D1FlatDreamWaQEnvCfg":
             self.disable_zero_weight_rewards()
 
+
 @configclass
 class D1FlatDreamWaQEnvCfg_PLAY(D1FlatDreamWaQEnvCfg):
     def __post_init__(self) -> None:

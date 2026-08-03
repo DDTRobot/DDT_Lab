@@ -553,7 +553,6 @@ class RewardsCfg:
     )
 
 
-
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
@@ -657,7 +656,6 @@ class D1RoughEnvCfg(ManagerBasedRLEnvCfg):
 
         self.observations.policy.joint_pos.params["asset_cfg"].joint_names = self.joint_names
         self.observations.policy.joint_vel.params["asset_cfg"].joint_names = self.joint_names
-
 
     def disable_zero_weight_rewards(self):
         """If the weight of rewards is 0, set rewards to None"""

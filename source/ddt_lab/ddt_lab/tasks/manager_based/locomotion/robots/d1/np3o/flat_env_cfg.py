@@ -34,6 +34,7 @@ class D1FlatNP3OEnvCfg(D1RoughNP3OEnvCfg):
         if self.__class__.__name__ == "D1FlatNP3OEnvCfg":
             self.disable_zero_weight_rewards()
 
+
 @configclass
 class D1FlatNP3OEnvCfg_PLAY(D1FlatNP3OEnvCfg):
     def __post_init__(self) -> None:

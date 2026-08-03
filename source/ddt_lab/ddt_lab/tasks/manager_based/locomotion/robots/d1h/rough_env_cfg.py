@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -93,7 +93,7 @@ class CommandsCfg:
         resampling_time_range=(10.0, 10.0),
         rel_standing_envs=0.02,
         rel_heading_envs=1.0,
-        heading_command=True,   
+        heading_command=True,
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
@@ -105,14 +105,14 @@ class CommandsCfg:
 # from isaaclab import mdp
 # from isaaclab.utils import configclass
 
+
 @configclass
 class D1HActionsCfg:
-    
-    # 左腿：髋、大腿、小腿 
+
+    # 左腿：髋、大腿、小腿
     fl_leg_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint"],
-        
         scale={
             "FL_hip_joint": 0.25,
             "FL_thigh_joint": 0.25,
@@ -133,7 +133,7 @@ class D1HActionsCfg:
         preserve_order=True,
     )
 
-    # 右腿：髋、大腿、小腿 
+    # 右腿：髋、大腿、小腿
     fr_leg_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint"],
@@ -439,44 +439,40 @@ class RewardsCfg:
         },
     )
 
-
     joint_mirror = RewTerm(
-    func=mdp.joint_mirror,
-    weight=-0.0,
-    params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "mirror_joints": [
-            ["FL_hip_joint", "FR_hip_joint"],
-            ["FL_thigh_joint", "FR_thigh_joint"],
-            ["FL_calf_joint", "FR_calf_joint"]
-        ]
-    },
+        func=mdp.joint_mirror,
+        weight=-0.0,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "mirror_joints": [
+                ["FL_hip_joint", "FR_hip_joint"],
+                ["FL_thigh_joint", "FR_thigh_joint"],
+                ["FL_calf_joint", "FR_calf_joint"],
+            ],
+        },
     )
-
 
     joint_pos_penalty = RewTerm(
-    func=mdp.joint_pos_penalty,
-    weight=-1.0,
-    params={
-        "command_name": "base_velocity",
-        "asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"]),
-        "stand_still_scale": 10,
-        "velocity_threshold": 0.02,
-        "command_threshold": 0.02,
-       },
+        func=mdp.joint_pos_penalty,
+        weight=-1.0,
+        params={
+            "command_name": "base_velocity",
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"]),
+            "stand_still_scale": 10,
+            "velocity_threshold": 0.02,
+            "command_threshold": 0.02,
+        },
     )
 
-
-#     stand_still = RewTerm(
-#     func=mdp.stand_still,
-#     weight=-2.0,
-#     params={
-#         "command_name": "base_velocity",
-#         "command_threshold": 0.06,
-#         "asset_cfg": SceneEntityCfg("robot"),
-#     },
-# )
-
+    #     stand_still = RewTerm(
+    #     func=mdp.stand_still,
+    #     weight=-2.0,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.06,
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #     },
+    # )
 
     # -- action penalties
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.02)
@@ -505,7 +501,7 @@ class RewardsCfg:
     # -- pose regularisation
     default_joint_l2 = RewTerm(
         func=mdp.default_joint_l2,
-        weight= -2.0,
+        weight=-2.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*(hip|thigh|calf)_joint"])},
     )
 
@@ -517,84 +513,61 @@ class RewardsCfg:
         },
     )
 
-
-
     # 腾空时间奖励
     feet_air_time = RewTerm(
-    func=mdp.reward_feet_air_time,
-    weight=0.0,
-    params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"])}
+        func=mdp.reward_feet_air_time,
+        weight=0.0,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_foot"])},
     )
 
     # 头部碰撞惩罚
     collision_head = RewTerm(
-      func=mdp.reward_collision_head,
-      weight=-0.0,
+        func=mdp.reward_collision_head,
+        weight=-0.0,
     )
 
-     #  大腿关节速度惩罚
+    #  大腿关节速度惩罚
     dof_thigh_vel = RewTerm(
-      func=mdp.reward_dof_thigh_vel,
-      weight=-0.0,
+        func=mdp.reward_dof_thigh_vel,
+        weight=-0.0,
     )
 
     # 机身不前后偏移两脚中点
     body_pos_to_feet_x = RewTerm(
-      func=mdp.reward_body_pos_to_feet_x,
-      weight=10.0,
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "sigma": 0.01
-        },
+        func=mdp.reward_body_pos_to_feet_x,
+        weight=10.0,
+        params={"asset_cfg": SceneEntityCfg("robot"), "sigma": 0.01},
     )
 
-       # 禁止两腿前后错开
+    # 禁止两腿前后错开
     body_feet_distance_x = RewTerm(
-      func=mdp.reward_body_feet_distance_x,
-      weight=-0.2,
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "sigma": 0.1
-      },
+        func=mdp.reward_body_feet_distance_x,
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot"), "sigma": 0.1},
     )
 
     # 固定两腿横向间距
     body_feet_distance_y = RewTerm(
-      func=mdp.reward_body_feet_distance_y,
-      weight=-0.8,
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "sigma": 0.1,
-        "desired_feet_distance": 0.4
-      },
+        func=mdp.reward_body_feet_distance_y,
+        weight=-0.8,
+        params={"asset_cfg": SceneEntityCfg("robot"), "sigma": 0.1, "desired_feet_distance": 0.4},
     )
 
     # 左右腿横向对称
     body_symmetry_y = RewTerm(
-      func=mdp.reward_body_symmetry_y,
-      weight=0.1,
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "sigma": 0.1
-      },
+        func=mdp.reward_body_symmetry_y,
+        weight=0.1,
+        params={"asset_cfg": SceneEntityCfg("robot"), "sigma": 0.1},
     )
 
     # 左右腿离地高度一致
     body_symmetry_z = RewTerm(
-      func=mdp.reward_body_symmetry_z,
-      weight=0.3,
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "sigma": 0.1
-      },
+        func=mdp.reward_body_symmetry_z,
+        weight=0.3,
+        params={"asset_cfg": SceneEntityCfg("robot"), "sigma": 0.1},
     )
 
 
-
-
-    
-
-     
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""

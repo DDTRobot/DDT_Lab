@@ -36,12 +36,10 @@ PLATFORM_TERRAINS_CFG = TerrainGeneratorCfg(
         "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
             proportion=0.2, noise_range=(0.02, 0.10), noise_step=0.02, border_width=0.25
         ),
-
         # "gap": terrain_gen.MeshGapTerrainCfg(
         #     proportion=0.1,
         #     gap_width_range=(0.05, 0.23),
         #     platform_width=3.0,
-
         # ),
         "boxes": terrain_gen.MeshBoxTerrainCfg(
             proportion=0.1,
@@ -56,7 +54,10 @@ PLATFORM_TERRAINS_CFG = TerrainGeneratorCfg(
             platform_width=3.0,
         ),
         "pits": terrain_gen.MeshPitTerrainCfg(
-            proportion=0.2, pit_depth_range=(0.05, 0.7), platform_width=3.0, double_pit=True,
+            proportion=0.2,
+            pit_depth_range=(0.05, 0.7),
+            platform_width=3.0,
+            double_pit=True,
         ),
     },
 )

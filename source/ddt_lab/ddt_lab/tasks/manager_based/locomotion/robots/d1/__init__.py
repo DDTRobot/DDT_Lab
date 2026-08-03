@@ -10,8 +10,8 @@ from .dreamwaq import agents as _dw_agents
 from .dreamwaq import flat_env_cfg as _dw_flat
 from .dreamwaq import rough_env_cfg as _dw_rough
 from .np3o import agents as _np3o_agents
-from .np3o import platform_env_cfg as _np3o_platform
 from .np3o import flat_env_cfg as _np3o_flat
+from .np3o import platform_env_cfg as _np3o_platform
 from .np3o import rough_env_cfg as _np3o_rough
 from .rsl_rl import agents as _ppo_agents
 from .rsl_rl import flat_env_cfg as _ppo_flat

@@ -88,6 +88,7 @@ class PrivilegedObservationsCfg(ObservationsCfg):
     priv: PrivCfg = PrivCfg()
     scanner: ScannerCfg | None = ScannerCfg()
 
+
 @configclass
 class RoughRewardsCfg(RewardsCfg):
     # -- wheel-legged gait shaping (core trio for lin_x rolling / lin_y+ang_z stepping)
